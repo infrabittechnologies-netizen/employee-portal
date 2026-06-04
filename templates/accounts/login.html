@@ -6,12 +6,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Sign In – EmpPortal</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="{% static 'css/main.css' %}" />
   <style>
-    body { background: linear-gradient(135deg, #1e1e2e 0%, #2d2d44 50%, #1e1e2e 100%); min-height: 100vh; display: flex; align-items: center; }
-    .login-wrapper { width: 100%; max-width: 440px; margin: auto; padding: 20px; }
+    body { background: linear-gradient(135deg, #1e1e2e 0%, #2d2d44 50%, #1e1e2e 100%); min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: 'Inter', sans-serif; }
+    .login-wrapper { width: 100%; max-width: 440px; padding: 20px; }
     .login-card {
       background: #fff;
       border-radius: 20px;
@@ -52,7 +51,7 @@
   <div class="login-card">
     <!-- Brand -->
     <div class="text-center mb-4">
-      <div class="brand-logo"><i class="fas fa-building"></i></div>
+      <div class="brand-logo"><i class="bi bi-building"></i></div>
       <h1 class="login-title">EmpPortal</h1>
       <p class="login-subtitle">Employee Management System</p>
     </div>
@@ -85,7 +84,7 @@
       <div class="mb-3">
         <label for="{{ form.username.id_for_label }}" class="form-label fw-semibold text-sm">Username</label>
         <div class="input-group">
-          <span class="input-group-text"><i class="fas fa-user"></i></span>
+          <span class="input-group-text"><i class="bi bi-person"></i></span>
           <input type="text"
                  id="{{ form.username.id_for_label }}"
                  name="{{ form.username.html_name }}"
@@ -104,7 +103,7 @@
       <div class="mb-4">
         <label for="{{ form.password.id_for_label }}" class="form-label fw-semibold text-sm">Password</label>
         <div class="input-group">
-          <span class="input-group-text"><i class="fas fa-lock"></i></span>
+          <span class="input-group-text"><i class="bi bi-lock"></i></span>
           <input type="password"
                  id="{{ form.password.id_for_label }}"
                  name="{{ form.password.html_name }}"
@@ -112,7 +111,7 @@
                  placeholder="Enter your password"
                  autocomplete="current-password" />
           <button type="button" class="btn btn-outline-secondary" id="toggle-password" tabindex="-1" style="border-radius:0 10px 10px 0;border-left:none;">
-            <i class="fas fa-eye" id="eye-icon"></i>
+            <i class="bi bi-eye" id="eye-icon"></i>
           </button>
         </div>
         {% if form.password.errors %}
@@ -121,7 +120,7 @@
       </div>
 
       <button type="submit" class="btn btn-primary btn-login w-100 text-white mb-4">
-        <i class="fas fa-sign-in-alt me-2"></i>Sign In
+        <i class="bi bi-box-arrow-in-right me-2"></i>Sign In
       </button>
     </form>
 
@@ -129,9 +128,9 @@
 
     <!-- Features -->
     <div class="d-flex flex-column gap-2">
-      <div class="feature-item"><i class="fas fa-shield-halved"></i><span>Secure & encrypted login</span></div>
-      <div class="feature-item"><i class="fas fa-clock"></i><span>Track attendance & leaves in real-time</span></div>
-      <div class="feature-item"><i class="fas fa-chart-bar"></i><span>View salary slips & performance</span></div>
+      <div class="feature-item"><i class="bi bi-shield-check"></i><span>Secure & encrypted login</span></div>
+      <div class="feature-item"><i class="bi bi-clock"></i><span>Track attendance & leaves in real-time</span></div>
+      <div class="feature-item"><i class="bi bi-bar-chart"></i><span>View salary slips & performance</span></div>
     </div>
   </div>
 
@@ -147,7 +146,7 @@
     toggleBtn.addEventListener('click', () => {
       const isPass = passInput.type === 'password';
       passInput.type = isPass ? 'text' : 'password';
-      eyeIcon.className = isPass ? 'fas fa-eye-slash' : 'fas fa-eye';
+      eyeIcon.className = isPass ? 'bi bi-eye-slash' : 'bi bi-eye';
     });
   }
 </script>
