@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Generate Payslip{% endblock %}
+{% block page_title %}Generate Payslip{% endblock %}
+{% block nav_salary_report %}active{% endblock %}
+
+{% block breadcrumb %}
+  <li class="breadcrumb-item"><a href="{% url 'salary:salary_report' %}" class="text-decoration-none text-muted">Salary</a></li>
+  <li class="breadcrumb-item active">Generate Payslip</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-6">
+    <div class="card fade-in-up">
+      <div class="card-header"><i class="fas fa-file-invoice-dollar text-primary me-2"></i>Generate / Update Payslip</div>
+      <div class="card-body p-4">
+        <p class="text-sm text-muted mb-4">Select an employee and period. The payslip pulls basic salary, attendance, bonuses and deductions for that month automatically.</p>
+        <form method="post" novalidate>
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Employee <span class="text-danger">*</span></label>
+            {{ form.employee }}
+            {% if form.employee.errors %}<div class="invalid-feedback d-block">{{ form.employee.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="row g-3 mb-4">
+            <div class="col-6">
+              <label class="form-label fw-semibold">Month <span class="text-danger">*</span></label>
+              {{ form.month }}
+              {% if form.month.errors %}<div class="invalid-feedback d-block">{{ form.month.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold">Year <span class="text-danger">*</span></label>
+              {{ form.year }}
+              {% if form.year.errors %}<div class="invalid-feedback d-block">{{ form.year.errors.0 }}</div>{% endif %}
+            </div>
+          </div>
+          {% if form.non_field_errors %}
+          <div class="alert alert-danger py-2 px-3 rounded-3 mb-3">
+            {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+          </div>
+          {% endif %}
+          <div class="d-flex gap-3">
+            <button type="submit" class="btn btn-primary px-4"><i class="fas fa-cogs me-2"></i>Generate</button>
+            <a href="{% url 'salary:salary_report' %}" class="btn btn-outline-secondary px-4">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

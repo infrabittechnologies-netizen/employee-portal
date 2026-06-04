@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}KPIs{% endblock %}
+{% block page_title %}Key Performance Indicators{% endblock %}
+{% block nav_performance %}active{% endblock %}
+
+{% block breadcrumb %}
+  <li class="breadcrumb-item active">KPIs</li>
+{% endblock %}
+
+{% block content %}
+<div class="card fade-in-up">
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div><i class="fas fa-bullseye text-primary me-2"></i>KPIs</div>
+    <div class="d-flex gap-2 align-items-center">
+      {% if employees %}
+      <form method="get" class="d-flex gap-2">
+        <select name="employee" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">All Employees</option>
+          {% for emp in employees %}
+          <option value="{{ emp.pk }}" {% if selected_employee == emp.pk|stringformat:"s" %}selected{% endif %}>{{ emp.get_full_name|default:emp.username }}</option>
+          {% endfor %}
+        </select>
+      </form>
+      {% endif %}
+      {% if request.user.is_manager_role %}
+      <a href="{% url 'performance:kpi_create' %}" class="btn btn-sm btn-primary"><i class="fas fa-plus me-1"></i>Add KPI</a>
+      {% endif %}
+    </div>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table mb-0 align-middle">
+        <thead>
+          <tr>
+            {% if employees %}<th>Employee</th>{% endif %}
+            <th>Title</th>
+            <th>Target</th>
+            <th>Achieved</th>
+            <th class="text-center">Status</th>
+            <th>Due</th>
+            <th class="text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for kpi in kpis %}
+          <tr>
+            {% if employees %}<td class="text-sm fw-semibold">{{ kpi.employee.get_full_name|default:kpi.employee.username }}</td>{% endif %}
+            <td class="text-sm fw-semibold">{{ kpi.title }}</td>
+            <td class="text-sm text-muted">{{ kpi.target }}</td>
+            <td class="text-sm text-muted">{{ kpi.achieved|default:"—" }}</td>
+            <td class="text-center">
+              {% if kpi.status == 'achieved' %}<span class="badge bg-success rounded-pill px-2 py-1 text-xs">Achieved</span>
+              {% elif kpi.status == 'on_track' %}<span class="badge bg-primary rounded-pill px-2 py-1 text-xs">On Track</span>
+              {% elif kpi.status == 'in_progress' %}<span class="badge bg-warning text-dark rounded-pill px-2 py-1 text-xs">In Progress</span>
+              {% elif kpi.status == 'missed' %}<span class="badge bg-danger rounded-pill px-2 py-1 text-xs">Missed</span>
+              {% else %}<span class="badge bg-secondary rounded-pill px-2 py-1 text-xs">{{ kpi.status|capfirst }}</span>{% endif %}
+            </td>
+            <td class="text-sm text-muted">{{ kpi.due_date|date:"M j, Y" }}</td>
+            <td class="text-center">
+              <a href="{% url 'performance:kpi_update' kpi.pk %}" class="btn btn-icon btn-sm btn-outline-primary" title="Edit"><i class="fas fa-pen"></i></a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="7" class="text-center py-5 text-muted">
+              <i class="fas fa-bullseye fa-2x mb-2 d-block opacity-25"></i>No KPIs found.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

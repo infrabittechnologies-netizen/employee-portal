@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title|default:"Announcement" }}{% endblock %}
+{% block page_title %}{{ title|default:"Announcement" }}{% endblock %}
+{% block nav_announcements %}active{% endblock %}
+
+{% block breadcrumb %}
+  <li class="breadcrumb-item"><a href="{% url 'holidays:announcement_list' %}" class="text-decoration-none text-muted">Announcements</a></li>
+  <li class="breadcrumb-item active">{{ title|default:"New" }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-7">
+    <div class="card fade-in-up">
+      <div class="card-header"><i class="fas fa-bullhorn text-primary me-2"></i>{{ title|default:"Create Announcement" }}</div>
+      <div class="card-body p-4">
+        <form method="post" novalidate>
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Title <span class="text-danger">*</span></label>
+            {{ form.title }}
+            {% if form.title.errors %}<div class="invalid-feedback d-block">{{ form.title.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Content <span class="text-danger">*</span></label>
+            {{ form.content }}
+            {% if form.content.errors %}<div class="invalid-feedback d-block">{{ form.content.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="row g-3 mb-4">
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold">Target <span class="text-danger">*</span></label>
+              {{ form.target }}
+              {% if form.target.errors %}<div class="invalid-feedback d-block">{{ form.target.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold">Department</label>
+              {{ form.department }}
+              <div class="form-text">{{ form.department.help_text }}</div>
+              {% if form.department.errors %}<div class="invalid-feedback d-block">{{ form.department.errors.0 }}</div>{% endif %}
+            </div>
+          </div>
+          {% if form.non_field_errors %}
+          <div class="alert alert-danger py-2 px-3 rounded-3 mb-3">
+            {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+          </div>
+          {% endif %}
+          <div class="d-flex gap-3">
+            <button type="submit" class="btn btn-primary px-4"><i class="fas fa-paper-plane me-2"></i>Post</button>
+            <a href="{% url 'holidays:announcement_list' %}" class="btn btn-outline-secondary px-4">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Manage Holidays{% endblock %}
+{% block page_title %}Manage Holidays{% endblock %}
+{% block nav_holidays %}active{% endblock %}
+
+{% block breadcrumb %}
+  <li class="breadcrumb-item"><a href="{% url 'holidays:holiday_list' %}" class="text-decoration-none text-muted">Holidays</a></li>
+  <li class="breadcrumb-item active">Manage</li>
+{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+  <div class="col-12 col-lg-5">
+    <div class="card fade-in-up">
+      <div class="card-header"><i class="fas fa-plus-circle text-primary me-2"></i>Add Holiday</div>
+      <div class="card-body p-4">
+        <form method="post" novalidate>
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Name <span class="text-danger">*</span></label>
+            {{ form.name }}
+            {% if form.name.errors %}<div class="invalid-feedback d-block">{{ form.name.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Date <span class="text-danger">*</span></label>
+            {{ form.date }}
+            {% if form.date.errors %}<div class="invalid-feedback d-block">{{ form.date.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Description</label>
+            {{ form.description }}
+            {% if form.description.errors %}<div class="invalid-feedback d-block">{{ form.description.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="form-check mb-4">
+            {{ form.is_optional }}
+            <label class="form-check-label" for="{{ form.is_optional.id_for_label }}">Optional Holiday</label>
+          </div>
+          <button type="submit" class="btn btn-primary px-4"><i class="fas fa-save me-2"></i>Add Holiday</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-lg-7">
+    <div class="card fade-in-up delay-1">
+      <div class="card-header"><i class="fas fa-calendar text-secondary me-2"></i>Holidays {{ current_year }}</div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table mb-0 align-middle">
+            <thead><tr><th>Name</th><th>Date</th><th class="text-center">Type</th></tr></thead>
+            <tbody>
+              {% for h in holidays %}
+              <tr>
+                <td class="text-sm fw-semibold">{{ h.name }}</td>
+                <td class="text-sm text-muted">{{ h.date|date:"D, M j, Y" }}</td>
+                <td class="text-center">
+                  {% if h.is_optional %}<span class="badge bg-info text-dark rounded-pill px-2 text-xs">Optional</span>
+                  {% else %}<span class="badge bg-success rounded-pill px-2 text-xs">Public</span>{% endif %}
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="3" class="text-center py-5 text-muted">No holidays added for {{ current_year }}.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

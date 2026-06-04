@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Attendance Detail{% endblock %}
+{% block page_title %}Attendance Detail{% endblock %}
+{% block nav_attendance %}active{% endblock %}
+
+{% block breadcrumb %}
+  <li class="breadcrumb-item"><a href="{% url 'attendance:my_attendance' %}" class="text-decoration-none text-muted">Attendance</a></li>
+  <li class="breadcrumb-item active">{{ attendance.date|date:"M j, Y" }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-xl-8">
+    <div class="card fade-in-up">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <div><i class="fas fa-calendar-day text-primary me-2"></i>{{ attendance.date|date:"l, F j, Y" }}</div>
+        {% if attendance.status == 'present' %}
+          <span class="badge bg-success rounded-pill px-3 py-2">Present</span>
+        {% elif attendance.status == 'late' %}
+          <span class="badge bg-warning text-dark rounded-pill px-3 py-2">Late</span>
+        {% elif attendance.status == 'absent' %}
+          <span class="badge bg-danger rounded-pill px-3 py-2">Absent</span>
+        {% elif attendance.status == 'half_day' %}
+          <span class="badge bg-info text-dark rounded-pill px-3 py-2">Half Day</span>
+        {% elif attendance.status == 'leave' %}
+          <span class="badge bg-secondary rounded-pill px-3 py-2">On Leave</span>
+        {% elif attendance.status == 'holiday' %}
+          <span class="badge bg-primary rounded-pill px-3 py-2">Holiday</span>
+        {% else %}
+          <span class="badge bg-secondary rounded-pill px-3 py-2">{{ attendance.get_status_display }}</span>
+        {% endif %}
+      </div>
+      <div class="card-body p-4">
+        <div class="row g-3">
+          <div class="col-12 col-md-6">
+            <div class="text-xs text-muted text-uppercase mb-1">Employee</div>
+            <div class="fw-semibold">{{ attendance.employee.get_full_name|default:attendance.employee.username }}</div>
+            <div class="text-sm text-muted">{{ attendance.employee.employee_id|default:"—" }}</div>
+          </div>
+          <div class="col-12 col-md-6">
+            <div class="text-xs text-muted text-uppercase mb-1">Work Hours</div>
+            <div class="fw-semibold fs-5">{{ attendance.work_hours }} hrs</div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="text-xs text-muted text-uppercase mb-1">Check In</div>
+            <div class="fw-semibold">{% if attendance.check_in %}{{ attendance.check_in|date:"g:i A" }}{% else %}—{% endif %}</div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="text-xs text-muted text-uppercase mb-1">Check Out</div>
+            <div class="fw-semibold">{% if attendance.check_out %}{{ attendance.check_out|date:"g:i A" }}{% else %}—{% endif %}</div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="text-xs text-muted text-uppercase mb-1">Late?</div>
+            <div class="fw-semibold">{% if attendance.is_late %}<span class="text-warning">Yes</span>{% else %}<span class="text-success">No</span>{% endif %}</div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="text-xs text-muted text-uppercase mb-1">IP Address</div>
+            <div class="fw-semibold text-sm">{{ attendance.ip_address|default:"—" }}</div>
+          </div>
+          {% if attendance.location %}
+          <div class="col-12">
+            <div class="text-xs text-muted text-uppercase mb-1">Location</div>
+            <div class="fw-semibold text-sm">{{ attendance.location }}</div>
+          </div>
+          {% endif %}
+          {% if attendance.notes %}
+          <div class="col-12">
+            <div class="text-xs text-muted text-uppercase mb-1">Notes</div>
+            <div class="text-sm">{{ attendance.notes|linebreaksbr }}</div>
+          </div>
+          {% endif %}
+        </div>
+
+        {% if attendance.break_restarts.all %}
+        <hr class="my-4">
+        <h6 class="fw-bold mb-3"><i class="fas fa-mug-hot text-secondary me-2"></i>Break Restarts</h6>
+        <div class="table-responsive">
+          <table class="table table-sm mb-0">
+            <thead><tr><th>Break</th><th>Scheduled End</th><th>Resumed At</th><th class="text-end">Delay</th></tr></thead>
+            <tbody>
+              {% for br in attendance.break_restarts.all %}
+              <tr>
+                <td>Break {{ br.break_number }}</td>
+                <td>{{ br.scheduled_end|time:"g:i A" }}</td>
+                <td>{{ br.resumed_at|date:"g:i A" }}</td>
+                <td class="text-end">{% if br.delay_minutes %}<span class="text-warning">+{{ br.delay_minutes }} min</span>{% else %}<span class="text-success">On time</span>{% endif %}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% endif %}
+
+        <div class="mt-4">
+          <a href="{% url 'attendance:my_attendance' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left me-2"></i>Back</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
