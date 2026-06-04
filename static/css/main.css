@@ -40,7 +40,8 @@ body {
   top: 0; left: 0;
   width: var(--sidebar-w);
   height: 100vh;
-  background: var(--sidebar-bg);
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  border-right: 1px solid rgba(255,255,255,.06);
   z-index: 1050;
   display: flex;
   flex-direction: column;
@@ -63,12 +64,13 @@ body {
 }
 
 .brand-icon {
-  width: 38px; height: 38px;
-  background: var(--primary);
-  border-radius: 10px;
+  width: 40px; height: 40px;
+  background: linear-gradient(135deg, #4361ee 0%, #7209b7 100%);
+  border-radius: 11px;
   display: flex; align-items: center; justify-content: center;
-  color: white; font-size: 1rem;
+  color: white; font-size: 1.05rem;
   flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(67,97,238,.4);
 }
 
 .brand-text {
@@ -115,8 +117,9 @@ body {
 
 .sidebar-nav .nav-link.active {
   color: #fff;
-  background: rgba(67,97,238,.18);
-  border-left-color: var(--primary);
+  font-weight: 600;
+  background: linear-gradient(90deg, rgba(67,97,238,.28) 0%, rgba(67,97,238,.05) 100%);
+  border-left-color: #4361ee;
 }
 
 .nav-icon {
@@ -334,9 +337,11 @@ body {
    STAT CARDS
 ================================================================ */
 .stat-card {
+  position: relative;
+  overflow: hidden;
   background: #fff;
-  border-radius: 14px;
-  padding: 20px;
+  border-radius: 16px;
+  padding: 22px;
   box-shadow: var(--card-shadow);
   display: flex;
   align-items: center;
@@ -344,15 +349,29 @@ body {
   transition: var(--ease);
 }
 
-.stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,.12); }
+.stat-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,.16); }
+
+/* Decorative corner glow */
+.stat-card::after {
+  content: "";
+  position: absolute;
+  top: -40px; right: -40px;
+  width: 120px; height: 120px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.12);
+}
 
 .stat-icon {
-  width: 52px; height: 52px;
-  border-radius: 13px;
+  width: 54px; height: 54px;
+  border-radius: 14px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 1.3rem;
+  font-size: 1.35rem;
   flex-shrink: 0;
+  background: rgba(255,255,255,.22);
+  color: #fff;
 }
+
+.stat-info { display: flex; flex-direction: column; min-width: 0; }
 
 .stat-icon.blue   { background: rgba(67,97,238,.1);  color: var(--primary); }
 .stat-icon.green  { background: rgba(46,196,182,.1);  color: var(--success); }
@@ -360,8 +379,30 @@ body {
 .stat-icon.red    { background: rgba(230,57,70,.1);   color: var(--danger);  }
 .stat-icon.purple { background: rgba(114,9,183,.1);   color: var(--secondary); }
 
-.stat-value { font-size: 1.55rem; font-weight: 700; color: #0f172a; line-height: 1; }
-.stat-label { font-size: .8rem;  color: #94a3b8; margin-top: 4px; }
+.stat-value { font-size: 1.75rem; font-weight: 800; color: #0f172a; line-height: 1.1; }
+.stat-label { font-size: .82rem;  color: #94a3b8; margin-top: 4px; font-weight: 500; }
+
+/* ---- Gradient stat cards (colorful) ---- */
+.stat-gradient-1, .stat-gradient-2, .stat-gradient-3,
+.stat-gradient-4, .stat-gradient-5 { color: #fff; border: none; }
+
+.stat-gradient-1 .stat-value,
+.stat-gradient-2 .stat-value,
+.stat-gradient-3 .stat-value,
+.stat-gradient-4 .stat-value,
+.stat-gradient-5 .stat-value { color: #fff; }
+
+.stat-gradient-1 .stat-label,
+.stat-gradient-2 .stat-label,
+.stat-gradient-3 .stat-label,
+.stat-gradient-4 .stat-label,
+.stat-gradient-5 .stat-label { color: rgba(255,255,255,.85); }
+
+.stat-gradient-1 { background: linear-gradient(135deg, #4361ee 0%, #3a0ca3 100%); box-shadow: 0 8px 24px rgba(67,97,238,.35); }
+.stat-gradient-2 { background: linear-gradient(135deg, #2ec4b6 0%, #1098ad 100%); box-shadow: 0 8px 24px rgba(46,196,182,.35); }
+.stat-gradient-3 { background: linear-gradient(135deg, #fca311 0%, #f77f00 100%); box-shadow: 0 8px 24px rgba(247,127,0,.35); }
+.stat-gradient-4 { background: linear-gradient(135deg, #e63946 0%, #c1121f 100%); box-shadow: 0 8px 24px rgba(230,57,70,.35); }
+.stat-gradient-5 { background: linear-gradient(135deg, #7209b7 0%, #480ca8 100%); box-shadow: 0 8px 24px rgba(114,9,183,.35); }
 
 /* ================================================================
    TABLES
