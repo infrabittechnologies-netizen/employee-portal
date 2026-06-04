@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if employee.is_active %}Deactivate{% else %}Activate{% endif %} Employee{% endblock %}
+{% block page_title %}{% if employee.is_active %}Deactivate{% else %}Activate{% endif %} Employee{% endblock %}
+{% block nav_employees %}active{% endblock %}
+
+{% block breadcrumb %}
+  <li class="breadcrumb-item"><a href="{% url 'accounts:employee_list' %}" class="text-decoration-none text-muted">Employees</a></li>
+  <li class="breadcrumb-item"><a href="{% url 'accounts:employee_detail' employee.pk %}" class="text-decoration-none text-muted">{{ employee.get_full_name|default:employee.username }}</a></li>
+  <li class="breadcrumb-item active">{% if employee.is_active %}Deactivate{% else %}Activate{% endif %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-6 col-lg-5">
+    <div class="card fade-in-up text-center" style="border-radius:16px;overflow:hidden;border:none;">
+      <div class="card-body p-5">
+        <!-- Icon -->
+        <div class="mb-4">
+          <div style="width:80px;height:80px;border-radius:50%;
+            background:{% if employee.is_active %}#fee2e2{% else %}#d1fae5{% endif %};
+            display:flex;align-items:center;justify-content:center;margin:0 auto;font-size:2rem;">
+            <i class="fas {% if employee.is_active %}fa-user-slash text-danger{% else %}fa-user-check text-success{% endif %}"></i>
+          </div>
+        </div>
+
+        <h4 class="fw-bold mb-2">
+          {% if employee.is_active %}Deactivate Account{% else %}Reactivate Account{% endif %}
+        </h4>
+
+        <p class="text-muted mb-4">
+          {% if employee.is_active %}
+            Are you sure you want to deactivate <strong>{{ employee.get_full_name|default:employee.username }}</strong>'s account?
+            They will no longer be able to log in.
+          {% else %}
+            Are you sure you want to reactivate <strong>{{ employee.get_full_name|default:employee.username }}</strong>'s account?
+            They will be able to log in again.
+          {% endif %}
+        </p>
+
+        <!-- Employee Info -->
+        <div class="d-flex align-items-center gap-3 p-3 rounded-xl mb-4 text-start"
+             style="background:#f9fafb;">
+          {% if employee.profile_picture %}
+            <img src="{{ employee.profile_picture.url }}" class="avatar-md" alt="avatar" />
+          {% else %}
+            <div class="avatar-md d-flex align-items-center justify-content-center fw-bold text-white"
+                 style="background:linear-gradient(135deg,#4f46e5,#6366f1);font-size:.9rem;">
+              {{ employee.first_name|slice:":1"|upper }}{{ employee.last_name|slice:":1"|upper }}
+            </div>
+          {% endif %}
+          <div>
+            <div class="fw-semibold">{{ employee.get_full_name|default:employee.username }}</div>
+            <div class="text-sm text-muted">{{ employee.employee_id|default:"No ID" }} &bull; {{ employee.designation|default:"No Designation" }}</div>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <form method="post" class="d-grid gap-2">
+          {% csrf_token %}
+          <button type="submit" class="btn {% if employee.is_active %}btn-danger{% else %}btn-success{% endif %}">
+            <i class="fas {% if employee.is_active %}fa-ban{% else %}fa-check{% endif %} me-2"></i>
+            {% if employee.is_active %}Yes, Deactivate{% else %}Yes, Reactivate{% endif %}
+          </button>
+          <a href="{% url 'accounts:employee_detail' employee.pk %}" class="btn btn-outline-secondary">
+            <i class="fas fa-times me-1"></i>Cancel
+          </a>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

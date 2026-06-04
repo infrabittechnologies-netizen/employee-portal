@@ -1,0 +1,7 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "python manage.py migrate --no-input && python manage.py collectstatic --no-input && gunicorn employee_portal.wsgi --log-file -"
+healthcheckPath = "/"
+restartPolicyType = "on_failure"

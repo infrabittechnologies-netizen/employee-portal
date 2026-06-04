@@ -1,0 +1,427 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}My Attendance{% endblock %}
+{% block page_title %}My Attendance{% endblock %}
+{% block nav_attendance %}active{% endblock %}
+
+{% block breadcrumb %}
+  <li class="breadcrumb-item active">My Attendance</li>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Check-in Card + Stats ── -->
+<div class="row g-4 mb-4">
+  <div class="col-12 col-md-5 col-xl-4">
+    <div class="card h-100 fade-in-up">
+      <div class="card-body p-4 d-flex flex-column align-items-center justify-content-center text-center">
+        <div class="live-clock mb-1" id="liveClock">--:--:--</div>
+        <div class="live-date mb-4" id="liveDate"></div>
+
+        {% if today_record %}
+          {% if today_record.check_in and today_record.check_out %}
+            <div class="badge bg-success fs-6 px-4 py-2 rounded-pill mb-3">
+              <i class="fas fa-check-circle me-2"></i>Completed
+            </div>
+            <div class="d-flex gap-4 text-center mt-2">
+              <div><div class="text-xs text-muted">Check In</div><div class="fw-bold">{{ today_record.check_in|time:"h:i A" }}</div></div>
+              <div><div class="text-xs text-muted">Check Out</div><div class="fw-bold">{{ today_record.check_out|time:"h:i A" }}</div></div>
+              <div><div class="text-xs text-muted">Hours</div><div class="fw-bold">{{ today_record.work_hours }}h</div></div>
+            </div>
+          {% elif today_record.check_in %}
+            <div class="badge badge-present fs-6 px-4 py-2 rounded-pill mb-3">
+              Checked In at {{ today_record.check_in|time:"h:i A" }}
+            </div>
+            <button class="checkin-btn checkout-mode" id="checkOutBtn" onclick="handleCheckOut()">
+              <i class="fas fa-sign-out-alt"></i><span>Check Out</span>
+            </button>
+            <div class="text-xs text-muted mt-3" id="feedback-area"></div>
+          {% endif %}
+        {% else %}
+          <p class="text-muted mb-3">You haven't checked in today.</p>
+          <button class="checkin-btn" id="checkInBtn" onclick="handleCheckIn()">
+            <i class="fas fa-sign-in-alt"></i><span>Check In</span>
+          </button>
+          <div class="text-xs text-muted mt-3" id="feedback-area"></div>
+        {% endif %}
+
+        {% if today_record and today_record.is_late %}
+          <div class="alert alert-warning text-sm mt-3 w-100" style="border-radius:10px;border:none;">
+            <i class="fas fa-clock me-1"></i>You checked in late today.
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- This Month Stats -->
+  <div class="col-12 col-md-7 col-xl-8">
+    <div class="row g-3 h-100">
+      <div class="col-6 col-sm-3">
+        <div class="card text-center p-3 h-100 fade-in-up delay-1">
+          <div style="width:48px;height:48px;border-radius:12px;background:#d1fae5;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">
+            <i class="fas fa-user-check text-success"></i>
+          </div>
+          <div class="fw-bold" style="font-size:1.8rem;color:#065f46;">{{ total_present }}</div>
+          <div class="text-xs text-muted">Present</div>
+        </div>
+      </div>
+      <div class="col-6 col-sm-3">
+        <div class="card text-center p-3 h-100 fade-in-up delay-1">
+          <div style="width:48px;height:48px;border-radius:12px;background:#fee2e2;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">
+            <i class="fas fa-user-times text-danger"></i>
+          </div>
+          <div class="fw-bold" style="font-size:1.8rem;color:#991b1b;">{{ total_absent }}</div>
+          <div class="text-xs text-muted">Absent</div>
+        </div>
+      </div>
+      <div class="col-6 col-sm-3">
+        <div class="card text-center p-3 h-100 fade-in-up delay-2">
+          <div style="width:48px;height:48px;border-radius:12px;background:#fef3c7;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">
+            <i class="fas fa-clock text-warning"></i>
+          </div>
+          <div class="fw-bold" style="font-size:1.8rem;color:#92400e;">{{ total_late }}</div>
+          <div class="text-xs text-muted">Late</div>
+        </div>
+      </div>
+      <div class="col-6 col-sm-3">
+        <div class="card text-center p-3 h-100 fade-in-up delay-2">
+          <div style="width:48px;height:48px;border-radius:12px;background:#dbeafe;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">
+            <i class="fas fa-plane-departure" style="color:#1e40af;"></i>
+          </div>
+          <div class="fw-bold" style="font-size:1.8rem;color:#1e40af;">{{ total_leave }}</div>
+          <div class="text-xs text-muted">On Leave</div>
+        </div>
+      </div>
+      <div class="col-12">
+        <div class="card p-3 fade-in-up delay-3">
+          <div class="d-flex flex-wrap gap-2 align-items-center">
+            <span class="fw-semibold text-sm me-1">Legend:</span>
+            <span class="badge badge-present px-2 py-1 rounded-pill text-xs">Present</span>
+            <span class="badge badge-absent px-2 py-1 rounded-pill text-xs">Absent</span>
+            <span class="badge badge-late px-2 py-1 rounded-pill text-xs">Late</span>
+            <span class="badge badge-leave px-2 py-1 rounded-pill text-xs">On Leave</span>
+            <span class="badge" style="background:#f3f4f6;color:#6b7280;">Weekend</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Attendance History Table ── -->
+<div class="card fade-in-up delay-2">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <div><i class="fas fa-history text-secondary me-2"></i>Attendance History</div>
+    <span class="badge bg-light text-muted">{{ records|length }} records</span>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table mb-0">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Day</th>
+            <th>Status</th>
+            <th>Check In</th>
+            <th>Check Out</th>
+            <th>Hours</th>
+            <th>Notes</th>
+            <th class="text-center">Detail</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for att in records %}
+          <tr>
+            <td class="fw-semibold text-sm">{{ att.date|date:"M j, Y" }}</td>
+            <td class="text-sm text-muted">{{ att.date|date:"l" }}</td>
+            <td>
+              <span class="badge badge-{{ att.status }} rounded-pill px-2 py-1 text-xs">
+                {{ att.get_status_display }}
+              </span>
+              {% if att.is_late %}
+                <span class="badge bg-warning text-dark rounded-pill px-2 py-1 text-xs ms-1">Late</span>
+              {% endif %}
+            </td>
+            <td class="text-sm">{% if att.check_in %}{{ att.check_in|time:"h:i A" }}{% else %}—{% endif %}</td>
+            <td class="text-sm">{% if att.check_out %}{{ att.check_out|time:"h:i A" }}{% else %}—{% endif %}</td>
+            <td class="text-sm">{% if att.work_hours %}{{ att.work_hours }}h{% else %}—{% endif %}</td>
+            <td class="text-sm text-muted">{{ att.notes|default:"—"|truncatechars:30 }}</td>
+            <td class="text-center">
+              <button class="btn btn-icon btn-sm btn-outline-primary" title="View Detail"
+                onclick="showAttDetail(this)"
+                data-date="{{ att.date|date:'M j, Y' }}"
+                data-day="{{ att.date|date:'l' }}"
+                data-status="{{ att.get_status_display }}"
+                data-status-class="{{ att.status }}"
+                data-is-late="{{ att.is_late|yesno:'true,false' }}"
+                data-checkin="{% if att.check_in %}{{ att.check_in|time:'h:i A' }}{% endif %}"
+                data-checkout="{% if att.check_out %}{{ att.check_out|time:'h:i A' }}{% endif %}"
+                data-checkin-raw="{% if att.check_in %}{{ att.check_in|time:'H:i' }}{% endif %}"
+                data-checkout-raw="{% if att.check_out %}{{ att.check_out|time:'H:i' }}{% endif %}"
+                data-hours="{{ att.work_hours|default:'0' }}"
+                data-notes="{{ att.notes|default:'' }}"
+                data-breaks='[{% for br in att.break_restarts.all %}{"n":{{ br.break_number }},"end":"{{ br.scheduled_end|time:'h:i A' }}","resumed":"{{ br.resumed_at|time:'h:i A' }}","delay":{{ br.delay_minutes }}}{% if not forloop.last %},{% endif %}{% endfor %}]'>
+                <i class="fas fa-eye"></i>
+              </button>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="8" class="text-center py-5 text-muted">
+              <i class="fas fa-calendar-times fa-2x mb-2 d-block opacity-25"></i>
+              No attendance records found.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── Attendance Detail Modal ── -->
+<div class="modal fade" id="attDetailModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content border-0 shadow-lg" style="border-radius:16px;overflow:hidden;">
+
+      <!-- Header -->
+      <div class="modal-header border-0 pb-0 px-4 pt-4">
+        <div>
+          <h5 class="fw-bold mb-0" id="attModal-date">—</h5>
+          <div class="mt-1" id="attModal-status"></div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body px-4 pt-3 pb-4">
+
+        <!-- Timeline Strip -->
+        <div class="d-flex align-items-center gap-2 mb-4 p-3 rounded-3" style="background:#f8fafc;border:1px solid #e2e8f0;">
+          <div class="text-center" style="min-width:80px;">
+            <div class="text-xs text-muted fw-semibold text-uppercase">Check In</div>
+            <div class="fw-bold text-success mt-1" id="attModal-checkin" style="font-size:1.05rem;">—</div>
+          </div>
+          <div class="flex-grow-1 position-relative" style="height:6px;background:#e2e8f0;border-radius:3px;">
+            <!-- Break 1 marker -->
+            <div style="position:absolute;left:calc(4/9*100%);top:-3px;width:2px;height:12px;background:#f59e0b;border-radius:2px;" title="Break 1: 6PM–7:15PM"></div>
+            <!-- Break 2 marker -->
+            <div style="position:absolute;left:calc(7.67/9*100%);top:-3px;width:2px;height:12px;background:#f59e0b;border-radius:2px;" title="Break 2: 9:40PM–10PM"></div>
+            <div style="position:absolute;top:-5px;left:calc(4/9*100% - 6px);">
+              <span style="font-size:.5rem;color:#f59e0b;background:#fff;border:1px solid #f59e0b;border-radius:4px;padding:0 3px;">B1</span>
+            </div>
+            <div style="position:absolute;top:-5px;left:calc(7.67/9*100% - 6px);">
+              <span style="font-size:.5rem;color:#f59e0b;background:#fff;border:1px solid #f59e0b;border-radius:4px;padding:0 3px;">B2</span>
+            </div>
+          </div>
+          <div class="text-center" style="min-width:80px;">
+            <div class="text-xs text-muted fw-semibold text-uppercase">Check Out</div>
+            <div class="fw-bold text-danger mt-1" id="attModal-checkout" style="font-size:1.05rem;">—</div>
+          </div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="row g-3 mb-3">
+          <div class="col-6 col-md-3">
+            <div class="text-center p-3 rounded-3" style="background:#f0fdf4;border:1px solid #bbf7d0;">
+              <div class="text-xs text-muted fw-semibold text-uppercase mb-1">Net Hours</div>
+              <div class="fw-bold" id="attModal-net" style="font-size:1.3rem;color:#065f46;">—</div>
+              <div class="text-xs text-muted">Worked</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="text-center p-3 rounded-3" style="background:#fefce8;border:1px solid #fde68a;">
+              <div class="text-xs text-muted fw-semibold text-uppercase mb-1">Raw Duration</div>
+              <div class="fw-bold" id="attModal-duration" style="font-size:1.3rem;color:#92400e;">—</div>
+              <div class="text-xs text-muted">Check-in → Out</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="text-center p-3 rounded-3" style="background:#fff7ed;border:1px solid #fed7aa;">
+              <div class="text-xs text-muted fw-semibold text-uppercase mb-1">Break Deducted</div>
+              <div class="fw-bold" id="attModal-break" style="font-size:1.3rem;color:#c2410c;">—</div>
+              <div class="text-xs text-muted">Not counted</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="text-center p-3 rounded-3" style="background:#f0f9ff;border:1px solid #bae6fd;">
+              <div class="text-xs text-muted fw-semibold text-uppercase mb-1">In Minutes</div>
+              <div class="fw-bold" id="attModal-netmins" style="font-size:1.3rem;color:#0369a1;">—</div>
+              <div class="text-xs text-muted">Net work mins</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Flags Row -->
+        <div class="row g-3 mb-3">
+          <div class="col-12 col-md-6">
+            <div class="d-flex align-items-center justify-content-between p-3 rounded-3" style="background:#f8fafc;border:1px solid #e2e8f0;">
+              <div>
+                <div class="text-xs text-muted fw-semibold text-uppercase">Arrival</div>
+                <div class="text-sm fw-medium mt-1" id="attModal-late-label">—</div>
+              </div>
+              <div id="attModal-late"></div>
+            </div>
+          </div>
+          <div class="col-12 col-md-6">
+            <div class="d-flex align-items-center justify-content-between p-3 rounded-3" style="background:#f8fafc;border:1px solid #e2e8f0;">
+              <div>
+                <div class="text-xs text-muted fw-semibold text-uppercase">Checkout</div>
+                <div class="text-sm fw-medium mt-1" id="attModal-early-label">—</div>
+              </div>
+              <div id="attModal-early"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Break Restarts -->
+        <div class="mb-3 p-3 rounded-3" id="attModal-breaks-wrap" style="background:#fefce8;border:1px solid #fde68a;display:none;">
+          <div class="text-xs text-muted fw-semibold text-uppercase mb-2"><i class="fas fa-mug-hot me-1 text-warning"></i>Break Restart Log</div>
+          <div id="attModal-breaks-list" class="d-flex flex-column gap-2"></div>
+        </div>
+
+        <!-- Notes -->
+        <div class="p-3 rounded-3" style="background:#f8fafc;border:1px solid #e2e8f0;">
+          <div class="text-xs text-muted fw-semibold text-uppercase mb-1"><i class="fas fa-sticky-note me-1"></i>Notes</div>
+          <div class="text-sm" id="attModal-notes">—</div>
+        </div>
+
+      </div>
+
+      <div class="modal-footer border-0 pt-0 px-4 pb-4">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showAttDetail(btn) {
+  const d = btn.dataset;
+
+  function parseHHMM(str) {
+    if (!str) return null;
+    const parts = str.split(':').map(Number);
+    return parts[0] * 60 + parts[1];
+  }
+
+  function fmtMins(totalMins) {
+    if (totalMins === null || isNaN(totalMins)) return '—';
+    const h = Math.floor(totalMins / 60);
+    const m = totalMins % 60;
+    if (h === 0) return m + 'm';
+    if (m === 0) return h + 'h';
+    return h + 'h ' + m + 'm';
+  }
+
+  const ciMins  = parseHHMM(d.checkinRaw);
+  const coMins  = parseHHMM(d.checkoutRaw);
+  const isFri   = d.day === 'Friday';
+  const shiftStart = isFri ? 15 * 60 : 14 * 60;
+  const shiftEnd   = 23 * 60;
+
+  // Net work hours → minutes
+  const workHoursDecimal = parseFloat(d.hours) || 0;
+  const netMinsTotal = Math.round(workHoursDecimal * 60);
+
+  // Raw duration
+  let rawMins = null;
+  if (ciMins !== null && coMins !== null) {
+    rawMins = coMins - ciMins;
+  }
+
+  // Break deducted
+  let breakMins = null;
+  if (rawMins !== null) {
+    breakMins = Math.max(0, rawMins - netMinsTotal);
+  }
+
+  // Late
+  let lateMin = 0;
+  if (ciMins !== null && ciMins > shiftStart) {
+    lateMin = ciMins - shiftStart;
+  }
+
+  // Early checkout
+  let earlyMin = 0;
+  if (coMins !== null && coMins < shiftEnd) {
+    earlyMin = shiftEnd - coMins;
+  }
+
+  // --- Populate modal ---
+  document.getElementById('attModal-date').textContent  = d.date + '  ·  ' + d.day;
+
+  const statusMap = {
+    present: 'bg-success', late: 'bg-warning text-dark',
+    absent: 'bg-danger',   leave: 'bg-info text-dark',
+    half_day: 'bg-secondary', cancelled: 'bg-secondary'
+  };
+  const badgeCls = statusMap[d.statusClass] || 'bg-secondary';
+  document.getElementById('attModal-status').innerHTML =
+    `<span class="badge rounded-pill px-3 py-1 ${badgeCls}">${d.status}</span>`;
+
+  document.getElementById('attModal-checkin').textContent  = d.checkin  || '—';
+  document.getElementById('attModal-checkout').textContent = d.checkout || '—';
+
+  document.getElementById('attModal-net').textContent      = fmtMins(netMinsTotal);
+  document.getElementById('attModal-netmins').textContent  = netMinsTotal > 0 ? netMinsTotal + ' min' : '—';
+  document.getElementById('attModal-duration').textContent = rawMins !== null ? fmtMins(rawMins) : '—';
+  document.getElementById('attModal-break').textContent    = breakMins !== null ? (breakMins > 0 ? fmtMins(breakMins) : '0 min') : '—';
+
+  // Late flag
+  const lateEl = document.getElementById('attModal-late');
+  const lateLblEl = document.getElementById('attModal-late-label');
+  if (ciMins === null) {
+    lateLblEl.textContent = 'No check-in';
+    lateEl.innerHTML = '<span class="badge bg-secondary">N/A</span>';
+  } else if (lateMin > 0) {
+    lateLblEl.textContent = lateMin + ' minutes after shift start';
+    lateEl.innerHTML = '<span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>Late Arrival</span>';
+  } else {
+    lateLblEl.textContent = 'On time or early';
+    lateEl.innerHTML = '<span class="badge bg-success"><i class="fas fa-check me-1"></i>On Time</span>';
+  }
+
+  // Early checkout flag
+  const earlyEl = document.getElementById('attModal-early');
+  const earlyLblEl = document.getElementById('attModal-early-label');
+  if (coMins === null) {
+    earlyLblEl.textContent = 'Not yet checked out';
+    earlyEl.innerHTML = '<span class="badge bg-secondary">Pending</span>';
+  } else if (earlyMin > 0) {
+    earlyLblEl.textContent = earlyMin + ' minutes before shift end';
+    earlyEl.innerHTML = '<span class="badge bg-danger"><i class="fas fa-sign-out-alt me-1"></i>Early Exit</span>';
+  } else {
+    earlyLblEl.textContent = 'Completed full shift';
+    earlyEl.innerHTML = '<span class="badge bg-success"><i class="fas fa-check me-1"></i>Full Shift</span>';
+  }
+
+  document.getElementById('attModal-notes').textContent = d.notes || '—';
+
+  // Break restarts
+  const breaksWrap = document.getElementById('attModal-breaks-wrap');
+  const breaksList = document.getElementById('attModal-breaks-list');
+  let breaksData = [];
+  try { breaksData = JSON.parse(d.breaks || '[]'); } catch(e) {}
+  if (breaksData.length > 0) {
+    breaksWrap.style.display = '';
+    breaksList.innerHTML = breaksData.map(br => {
+      const delayTxt = br.delay > 0 ? `<span class="badge bg-danger ms-2">${br.delay} min late restart</span>` : `<span class="badge bg-success ms-2">On time</span>`;
+      return `<div class="d-flex align-items-center gap-2 text-sm">
+        <i class="fas fa-mug-hot text-warning"></i>
+        <span><strong>Break ${br.n}</strong> ended ${br.end} → Restarted at <strong>${br.resumed}</strong>${delayTxt}</span>
+      </div>`;
+    }).join('');
+  } else {
+    breaksWrap.style.display = 'none';
+  }
+
+  new bootstrap.Modal(document.getElementById('attDetailModal')).show();
+}
+</script>
+{% endblock %}

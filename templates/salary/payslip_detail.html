@@ -1,0 +1,193 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Payslip — {{ payslip.month }}/{{ payslip.year }}{% endblock %}
+{% block page_title %}Payslip Detail{% endblock %}
+{% block nav_salary %}active{% endblock %}
+
+{% block breadcrumb %}
+  <li class="breadcrumb-item"><a href="{% url 'salary:my_salary' %}" class="text-decoration-none text-muted">My Salary</a></li>
+  <li class="breadcrumb-item active">{{ payslip.month }}/{{ payslip.year }}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  @media print {
+    #sidebar, #topbar, .no-print { display: none !important; }
+    #main-content { margin: 0 !important; padding: 0 !important; }
+    .payslip-card { box-shadow: none !important; border: 1px solid #ddd !important; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-end gap-2 mb-4 no-print">
+  <button onclick="window.print()" class="btn btn-outline-secondary">
+    <i class="fas fa-print me-2"></i>Print
+  </button>
+  <a href="{% url 'salary:download_payslip' payslip.pk %}" class="btn btn-primary">
+    <i class="fas fa-download me-2"></i>Download PDF
+  </a>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-9">
+    <div class="card payslip-card fade-in-up" style="border:none;border-radius:16px;overflow:hidden;">
+
+      <!-- Header -->
+      <div style="background:linear-gradient(135deg,#1e3a8a 0%,#3b82f6 100%);color:white;padding:2rem 2.5rem;">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+          <div>
+            <div class="d-flex align-items-center gap-3 mb-2">
+              <div class="rounded-3 p-2" style="background:rgba(255,255,255,0.2);">
+                <i class="fas fa-building fa-lg text-white"></i>
+              </div>
+              <div>
+                <div class="fw-bold fs-5">Employee Portal</div>
+                <div class="text-white opacity-75 text-xs">Human Resources Department</div>
+              </div>
+            </div>
+          </div>
+          <div class="text-end">
+            <div class="text-white opacity-75 text-xs text-uppercase mb-1">Pay Slip</div>
+            <div class="fw-bold fs-4">Month {{ payslip.month }}, {{ payslip.year }}</div>
+            <div class="mt-1">
+              <span class="badge {% if payslip.status == 'paid' %}bg-success{% elif payslip.status == 'processed' %}bg-info text-dark{% else %}bg-warning text-dark{% endif %} px-3 py-2">
+                {{ payslip.get_status_display }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Employee Info -->
+      <div class="px-4 py-3" style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">
+        <div class="row g-3">
+          <div class="col-6 col-sm-4 col-md-3">
+            <div class="text-xs text-muted fw-medium text-uppercase mb-1">Employee Name</div>
+            <div class="fw-semibold text-sm">{{ payslip.employee.get_full_name }}</div>
+          </div>
+          <div class="col-6 col-sm-4 col-md-3">
+            <div class="text-xs text-muted fw-medium text-uppercase mb-1">Employee ID</div>
+            <div class="fw-semibold text-sm">{{ payslip.employee.employee_id|default:"—" }}</div>
+          </div>
+          <div class="col-6 col-sm-4 col-md-3">
+            <div class="text-xs text-muted fw-medium text-uppercase mb-1">Department</div>
+            <div class="fw-semibold text-sm">{{ payslip.employee.department|default:"—" }}</div>
+          </div>
+          <div class="col-6 col-sm-4 col-md-3">
+            <div class="text-xs text-muted fw-medium text-uppercase mb-1">Designation</div>
+            <div class="fw-semibold text-sm">{{ payslip.employee.designation|default:"—" }}</div>
+          </div>
+          <div class="col-6 col-sm-4 col-md-3">
+            <div class="text-xs text-muted fw-medium text-uppercase mb-1">Present Days</div>
+            <div class="fw-semibold text-sm">{{ payslip.present_days }} / {{ payslip.working_days }}</div>
+          </div>
+          <div class="col-6 col-sm-4 col-md-3">
+            <div class="text-xs text-muted fw-medium text-uppercase mb-1">Pay Period</div>
+            <div class="fw-semibold text-sm">Month {{ payslip.month }}, {{ payslip.year }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-body p-4">
+        <div class="row g-4">
+
+          <!-- Earnings -->
+          <div class="col-12 col-md-6">
+            <div class="fw-bold text-sm text-uppercase mb-3" style="color:#1e3a8a;letter-spacing:.05em;">
+              <i class="fas fa-plus-circle me-1"></i>Earnings
+            </div>
+            <table class="table table-sm mb-0">
+              <thead style="background:#f0f9ff;">
+                <tr>
+                  <th class="text-xs text-muted">Description</th>
+                  <th class="text-xs text-muted text-end">Amount (PKR)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="text-sm">Basic Salary</td>
+                  <td class="text-sm text-end fw-medium">{{ payslip.basic_salary|floatformat:2 }}</td>
+                </tr>
+                {% for bonus in bonuses %}
+                <tr>
+                  <td class="text-sm">{{ bonus.title }}</td>
+                  <td class="text-sm text-end text-success">{{ bonus.amount|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+              <tfoot style="background:#f0f9ff;">
+                <tr>
+                  <td class="fw-bold text-sm">Total Earnings</td>
+                  <td class="fw-bold text-sm text-end text-success">
+                    {{ payslip.total_allowances|floatformat:2|default:"0.00" }}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <!-- Deductions -->
+          <div class="col-12 col-md-6">
+            <div class="fw-bold text-sm text-uppercase mb-3" style="color:#991b1b;letter-spacing:.05em;">
+              <i class="fas fa-minus-circle me-1"></i>Deductions
+            </div>
+            <table class="table table-sm mb-0">
+              <thead style="background:#fff5f5;">
+                <tr>
+                  <th class="text-xs text-muted">Description</th>
+                  <th class="text-xs text-muted text-end">Amount (PKR)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for ded in deductions %}
+                <tr>
+                  <td class="text-sm">{{ ded.description|default:ded.get_reason_display }}</td>
+                  <td class="text-sm text-end text-danger">{{ ded.amount|floatformat:2 }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                  <td colspan="2" class="text-center py-3 text-muted text-xs">No deductions</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+              <tfoot style="background:#fff5f5;">
+                <tr>
+                  <td class="fw-bold text-sm">Total Deductions</td>
+                  <td class="fw-bold text-sm text-end text-danger">
+                    {{ payslip.total_deductions|floatformat:2|default:"0.00" }}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+        </div>
+
+        <!-- Net Salary Box -->
+        <div class="mt-4 p-4 rounded-3 text-center"
+             style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:2px solid #86efac;">
+          <div class="text-sm text-muted fw-medium text-uppercase mb-1">Net Salary</div>
+          <div class="fw-bold" style="font-size:2rem;color:#14532d;">
+            PKR {{ payslip.net_salary|floatformat:2 }}
+          </div>
+          {% if payslip.notes %}
+          <div class="text-xs text-muted mt-2">
+            <i class="fas fa-info-circle me-1"></i>{{ payslip.notes }}
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- Footer note -->
+        <div class="mt-4 pt-3 border-top text-center">
+          <div class="text-xs text-muted">
+            This is a computer-generated payslip and does not require a signature.
+            For queries, contact HR at <strong>hr@empportal.com</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

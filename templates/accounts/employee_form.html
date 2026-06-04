@@ -1,0 +1,234 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if is_edit %}Edit Employee{% else %}Add Employee{% endif %}{% endblock %}
+{% block page_title %}{% if is_edit %}Edit Employee{% else %}Add Employee{% endif %}{% endblock %}
+{% block nav_employees %}active{% endblock %}
+
+{% block breadcrumb %}
+  <li class="breadcrumb-item"><a href="{% url 'accounts:employee_list' %}" class="text-decoration-none text-muted">Employees</a></li>
+  <li class="breadcrumb-item active">{% if is_edit %}Edit{% else %}Add{% endif %}</li>
+{% endblock %}
+
+{% block content %}
+<form method="post" enctype="multipart/form-data" novalidate>
+  {% csrf_token %}
+
+  <div class="row g-4">
+
+    <!-- Left Column -->
+    <div class="col-12 col-lg-8">
+
+      <!-- Basic Info -->
+      <div class="card mb-4 fade-in-up">
+        <div class="card-header">
+          <i class="fas fa-user text-primary me-2"></i>Basic Information
+        </div>
+        <div class="card-body p-4">
+          <div class="row g-3">
+            <div class="col-12 col-sm-6">
+              <label class="form-label fw-semibold">First Name <span class="text-danger">*</span></label>
+              {{ form.first_name }}
+              {% if form.first_name.errors %}<div class="invalid-feedback d-block">{{ form.first_name.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="col-12 col-sm-6">
+              <label class="form-label fw-semibold">Last Name <span class="text-danger">*</span></label>
+              {{ form.last_name }}
+              {% if form.last_name.errors %}<div class="invalid-feedback d-block">{{ form.last_name.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="col-12 col-sm-6">
+              <label class="form-label fw-semibold">Username <span class="text-danger">*</span></label>
+              {{ form.username }}
+              {% if form.username.errors %}<div class="invalid-feedback d-block">{{ form.username.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="col-12 col-sm-6">
+              <label class="form-label fw-semibold">Email <span class="text-danger">*</span></label>
+              {{ form.email }}
+              {% if form.email.errors %}<div class="invalid-feedback d-block">{{ form.email.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="col-12 col-sm-6">
+              <label class="form-label fw-semibold">Employee ID <span class="text-danger">*</span></label>
+              {{ form.employee_id }}
+              {% if form.employee_id.errors %}<div class="invalid-feedback d-block">{{ form.employee_id.errors.0 }}</div>{% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Work Info -->
+      <div class="card mb-4 fade-in-up delay-1">
+        <div class="card-header">
+          <i class="fas fa-briefcase text-primary me-2"></i>Work Information
+        </div>
+        <div class="card-body p-4">
+          <div class="row g-3">
+            <div class="col-12 col-sm-6">
+              <label class="form-label fw-semibold">Designation</label>
+              {{ form.designation }}
+              {% if form.designation.errors %}<div class="invalid-feedback d-block">{{ form.designation.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="col-12 col-sm-6">
+              <label class="form-label fw-semibold">Department</label>
+              {{ form.department }}
+              {% if form.department.errors %}<div class="invalid-feedback d-block">{{ form.department.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="col-12 col-sm-6">
+              <label class="form-label fw-semibold">Role <span class="text-danger">*</span></label>
+              {{ form.role }}
+              {% if form.role.errors %}<div class="invalid-feedback d-block">{{ form.role.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="col-12 col-sm-6">
+              <label class="form-label fw-semibold">Joining Date</label>
+              {{ form.joining_date }}
+              {% if form.joining_date.errors %}<div class="invalid-feedback d-block">{{ form.joining_date.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="col-12 col-sm-6">
+              <label class="form-label fw-semibold">Manager</label>
+              {{ form.manager }}
+              {% if form.manager.errors %}<div class="invalid-feedback d-block">{{ form.manager.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="col-12 col-sm-6">
+              <label class="form-label fw-semibold">Basic Salary (PKR)</label>
+              {{ form.basic_salary }}
+              {% if form.basic_salary.errors %}<div class="invalid-feedback d-block">{{ form.basic_salary.errors.0 }}</div>{% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Personal Info -->
+      <div class="card mb-4 fade-in-up delay-2">
+        <div class="card-header">
+          <i class="fas fa-id-card text-primary me-2"></i>Personal Information
+        </div>
+        <div class="card-body p-4">
+          <div class="row g-3">
+            <div class="col-12 col-sm-6">
+              <label class="form-label fw-semibold">Phone</label>
+              {{ form.phone }}
+              {% if form.phone.errors %}<div class="invalid-feedback d-block">{{ form.phone.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="col-12 col-sm-6">
+              <label class="form-label fw-semibold">Date of Birth</label>
+              {{ form.date_of_birth }}
+              {% if form.date_of_birth.errors %}<div class="invalid-feedback d-block">{{ form.date_of_birth.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Address</label>
+              {{ form.address }}
+              {% if form.address.errors %}<div class="invalid-feedback d-block">{{ form.address.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Emergency Contact</label>
+              {{ form.emergency_contact }}
+              {% if form.emergency_contact.errors %}<div class="invalid-feedback d-block">{{ form.emergency_contact.errors.0 }}</div>{% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Password (Create only) -->
+      {% if not is_edit %}
+      <div class="card mb-4 fade-in-up delay-3">
+        <div class="card-header">
+          <i class="fas fa-lock text-primary me-2"></i>Set Password
+        </div>
+        <div class="card-body p-4">
+          <div class="row g-3">
+            <div class="col-12 col-sm-6">
+              <label class="form-label fw-semibold">Password <span class="text-danger">*</span></label>
+              {{ form.password1 }}
+              {% if form.password1.errors %}<div class="invalid-feedback d-block">{{ form.password1.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="col-12 col-sm-6">
+              <label class="form-label fw-semibold">Confirm Password <span class="text-danger">*</span></label>
+              {{ form.password2 }}
+              {% if form.password2.errors %}<div class="invalid-feedback d-block">{{ form.password2.errors.0 }}</div>{% endif %}
+            </div>
+          </div>
+          <div class="form-text mt-2">
+            Password must be at least 8 characters and contain letters and numbers.
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Non-field errors -->
+      {% if form.non_field_errors %}
+      <div class="alert alert-danger py-2 px-3 rounded-3 mb-4">
+        {% for error in form.non_field_errors %}
+          <div><i class="fas fa-exclamation-circle me-1"></i>{{ error }}</div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+    </div>
+
+    <!-- Right Sidebar -->
+    <div class="col-12 col-lg-4">
+      <div class="card fade-in-up delay-1" style="position:sticky;top:80px;">
+        <div class="card-body p-4">
+          {% if is_edit %}
+          <div class="text-center mb-4">
+            {% if employee.profile_picture %}
+              <img src="{{ employee.get_profile_picture_url }}" class="rounded-circle mb-2" width="80" height="80" style="object-fit:cover;" alt="">
+            {% else %}
+              <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold mx-auto mb-2"
+                   style="width:80px;height:80px;font-size:1.5rem;">
+                {{ employee.first_name|first|upper }}{{ employee.last_name|first|upper }}
+              </div>
+            {% endif %}
+            <div class="fw-bold">{{ employee.get_full_name|default:employee.username }}</div>
+            <div class="text-sm text-muted">{{ employee.employee_id }}</div>
+          </div>
+          {% else %}
+          <div class="text-center mb-4">
+            <div class="rounded-circle bg-light d-flex align-items-center justify-content-center mx-auto mb-2"
+                 style="width:80px;height:80px;">
+              <i class="fas fa-user-plus fa-2x text-muted opacity-50"></i>
+            </div>
+            <div class="text-sm text-muted">New Employee</div>
+          </div>
+          {% endif %}
+
+          <!-- Status toggles -->
+          {% if is_edit %}
+          <div class="mb-4 pb-3 border-bottom">
+            {% if form.is_active %}
+            <div class="form-check form-switch mb-2">
+              {{ form.is_active }}
+              <label class="form-check-label text-sm fw-medium" for="{{ form.is_active.id_for_label }}">
+                Active Account
+              </label>
+            </div>
+            {% endif %}
+          </div>
+          {% endif %}
+
+          <div class="d-grid gap-2">
+            <button type="submit" class="btn btn-primary">
+              <i class="fas {% if is_edit %}fa-save{% else %}fa-user-plus{% endif %} me-2"></i>
+              {% if is_edit %}Save Changes{% else %}Create Employee{% endif %}
+            </button>
+            <a href="{% url 'accounts:employee_list' %}" class="btn btn-outline-secondary">
+              Cancel
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Add Bootstrap classes to all form inputs
+document.querySelectorAll('input:not([type="checkbox"]):not([type="radio"]), select, textarea').forEach(el => {
+  if (!el.classList.contains('form-control') && !el.classList.contains('form-select')) {
+    el.classList.add(el.tagName === 'SELECT' ? 'form-select' : 'form-control');
+  }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,231 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Apply for Leave{% endblock %}
+{% block page_title %}Apply for Leave{% endblock %}
+{% block nav_leaves %}active{% endblock %}
+
+{% block breadcrumb %}
+  <li class="breadcrumb-item"><a href="{% url 'leaves:my_leaves' %}" class="text-decoration-none text-muted">My Leaves</a></li>
+  <li class="breadcrumb-item active">Apply</li>
+{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+
+  <!-- Form Column -->
+  <div class="col-12 col-lg-8">
+    <div class="card fade-in-up">
+      <div class="card-header">
+        <i class="fas fa-calendar-plus text-primary me-2"></i>Leave Application Form
+      </div>
+      <div class="card-body p-4">
+        <form method="post" enctype="multipart/form-data" novalidate>
+          {% csrf_token %}
+
+          <!-- Leave Type -->
+          <div class="mb-4">
+            <label class="form-label fw-semibold">Leave Type <span class="text-danger">*</span></label>
+            {{ form.leave_type }}
+            {% if form.leave_type.errors %}
+              <div class="invalid-feedback d-block">{{ form.leave_type.errors.0 }}</div>
+            {% endif %}
+            <div class="mt-2" id="balance-info-box"></div>
+          </div>
+
+          <!-- Date Range -->
+          <div class="row g-3 mb-4">
+            <div class="col-12 col-sm-6">
+              <label class="form-label fw-semibold">From Date <span class="text-danger">*</span></label>
+              {{ form.from_date }}
+              {% if form.from_date.errors %}
+                <div class="invalid-feedback d-block">{{ form.from_date.errors.0 }}</div>
+              {% endif %}
+            </div>
+            <div class="col-12 col-sm-6">
+              <label class="form-label fw-semibold">To Date <span class="text-danger">*</span></label>
+              {{ form.to_date }}
+              {% if form.to_date.errors %}
+                <div class="invalid-feedback d-block">{{ form.to_date.errors.0 }}</div>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- Working Days Counter -->
+          <div class="mb-4">
+            <div id="leaveDaysDisplay" class="d-none">
+              <div class="alert alert-info d-flex align-items-center gap-3 py-2 px-3" style="border-radius:10px;border:none;background:#eff6ff;">
+                <i class="fas fa-calendar-day text-primary fa-lg"></i>
+                <div>
+                  <span class="fw-semibold text-primary" id="daysCount">0</span>
+                  <span class="text-sm text-muted ms-1">working day(s) selected</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Half Day -->
+          <div class="mb-4">
+            <div class="form-check form-switch">
+              {{ form.is_half_day }}
+              <label class="form-check-label fw-medium" for="{{ form.is_half_day.id_for_label }}">
+                Half Day Leave
+              </label>
+            </div>
+            {% if form.is_half_day.errors %}
+              <div class="invalid-feedback d-block">{{ form.is_half_day.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          <!-- Reason -->
+          <div class="mb-4">
+            <label class="form-label fw-semibold">Reason <span class="text-danger">*</span></label>
+            {{ form.reason }}
+            {% if form.reason.errors %}
+              <div class="invalid-feedback d-block">{{ form.reason.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          <!-- Document Upload -->
+          {% if form.document %}
+          <div class="mb-4">
+            <label class="form-label fw-semibold">Supporting Document <span class="text-muted fw-normal">(optional)</span></label>
+            {{ form.document }}
+            {% if form.document.errors %}
+              <div class="invalid-feedback d-block">{{ form.document.errors.0 }}</div>
+            {% endif %}
+            <div class="form-text">Upload medical certificate or other relevant documents (PDF, JPG, PNG — max 5MB).</div>
+          </div>
+          {% endif %}
+
+          <!-- Non-field errors -->
+          {% if form.non_field_errors %}
+          <div class="alert alert-danger py-2 px-3 rounded-3 mb-4">
+            {% for error in form.non_field_errors %}
+              <div><i class="fas fa-exclamation-circle me-1"></i>{{ error }}</div>
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          <!-- Actions -->
+          <div class="d-flex gap-3 mt-2">
+            <button type="submit" class="btn btn-primary px-4">
+              <i class="fas fa-paper-plane me-2"></i>Submit Application
+            </button>
+            <a href="{% url 'leaves:my_leaves' %}" class="btn btn-outline-secondary px-4">
+              Cancel
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Balance Sidebar -->
+  <div class="col-12 col-lg-4">
+    <div class="card fade-in-up delay-1">
+      <div class="card-header">
+        <i class="fas fa-chart-pie text-secondary me-2"></i>Your Leave Balances
+      </div>
+      <div class="card-body p-3">
+        {% for lb in leave_balances %}
+        <div class="mb-3 pb-3 {% if not forloop.last %}border-bottom{% endif %}">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="fw-medium text-sm">{{ lb.leave_type.name }}</span>
+            <span class="badge rounded-pill text-white text-xs" style="background:{{ lb.leave_type.color }};">
+              {{ lb.remaining }} left
+            </span>
+          </div>
+          <div class="progress" style="height:6px;border-radius:10px;">
+            {% if lb.total_allocated > 0 %}
+            <div class="progress-bar" style="width:{% widthratio lb.used lb.total_allocated 100 %}%;background:{{ lb.leave_type.color }};border-radius:10px;"></div>
+            {% endif %}
+          </div>
+          <div class="d-flex justify-content-between mt-1">
+            <span class="text-xs text-muted">Used: {{ lb.used }}</span>
+            <span class="text-xs text-muted">Total: {{ lb.total_allocated }}</span>
+          </div>
+        </div>
+        {% empty %}
+        <p class="text-muted text-sm text-center py-2">No leave balances assigned.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Tips Card -->
+    <div class="card mt-3 fade-in-up delay-2" style="border-left:4px solid #6366f1;">
+      <div class="card-body p-3">
+        <div class="fw-semibold text-sm mb-2"><i class="fas fa-lightbulb text-warning me-1"></i>Tips</div>
+        <ul class="text-xs text-muted mb-0 ps-3">
+          <li class="mb-1">Apply at least 2 days in advance for planned leaves.</li>
+          <li class="mb-1">Medical leaves require a doctor's certificate.</li>
+          <li class="mb-1">Half-day leaves count as 0.5 days.</li>
+          <li>You'll be notified once your leave is reviewed.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const balances = {
+    {% for lb in leave_balances %}
+    "{{ lb.leave_type.pk }}": { name: "{{ lb.leave_type.name }}", remaining: {{ lb.remaining }}, color: "{{ lb.leave_type.color }}" },
+    {% endfor %}
+  };
+
+  const leaveTypeEl = document.querySelector('[name="leave_type"]');
+  const fromEl      = document.querySelector('[name="from_date"]');
+  const toEl        = document.querySelector('[name="to_date"]');
+  const display     = document.getElementById('leaveDaysDisplay');
+  const daysCount   = document.getElementById('daysCount');
+  const infoBox     = document.getElementById('balance-info-box');
+
+  function calcLeaveDays() {
+    const from = fromEl ? fromEl.value : '';
+    const to   = toEl   ? toEl.value   : '';
+    if (!from || !to) { display.classList.add('d-none'); return; }
+    const start = new Date(from);
+    const end   = new Date(to);
+    if (end < start) { display.classList.add('d-none'); return; }
+    let days = 0;
+    const cur = new Date(start);
+    while (cur <= end) {
+      const dow = cur.getDay();
+      if (dow !== 0 && dow !== 6) days++;
+      cur.setDate(cur.getDate() + 1);
+    }
+    daysCount.textContent = days;
+    display.classList.remove('d-none');
+  }
+
+  function updateBalanceInfo() {
+    if (!leaveTypeEl || !infoBox) return;
+    const selected = leaveTypeEl.value;
+    if (!selected || !balances[selected]) { infoBox.innerHTML = ''; return; }
+    const b = balances[selected];
+    const cls = b.remaining <= 0 ? 'danger' : b.remaining <= 2 ? 'warning' : 'success';
+    infoBox.innerHTML = `<div class="alert alert-${cls} py-2 px-3 text-sm" style="border-radius:8px;border:none;">
+      <i class="fas fa-info-circle me-1"></i>
+      <strong>${b.name}</strong> — <strong>${b.remaining}</strong> days remaining
+    </div>`;
+  }
+
+  if (leaveTypeEl) leaveTypeEl.addEventListener('change', updateBalanceInfo);
+  if (fromEl) fromEl.addEventListener('change', calcLeaveDays);
+  if (toEl)   toEl.addEventListener('change', calcLeaveDays);
+
+  // Bootstrap-style classes for Django form fields
+  document.querySelectorAll('select, input[type="date"], textarea').forEach(el => {
+    if (!el.classList.contains('form-control') && !el.classList.contains('form-select')) {
+      if (el.tagName === 'SELECT') el.classList.add('form-select');
+      else el.classList.add('form-control');
+    }
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,155 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign In – EmpPortal</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{% static 'css/main.css' %}" />
+  <style>
+    body { background: linear-gradient(135deg, #1e1e2e 0%, #2d2d44 50%, #1e1e2e 100%); min-height: 100vh; display: flex; align-items: center; }
+    .login-wrapper { width: 100%; max-width: 440px; margin: auto; padding: 20px; }
+    .login-card {
+      background: #fff;
+      border-radius: 20px;
+      padding: 44px 40px;
+      box-shadow: 0 25px 60px rgba(0,0,0,.35);
+    }
+    .brand-logo {
+      width: 64px; height: 64px;
+      background: linear-gradient(135deg, #4f46e5 0%, #818cf8 100%);
+      border-radius: 18px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px; color: #fff;
+      margin: 0 auto 16px;
+      box-shadow: 0 8px 24px rgba(79,70,229,.35);
+    }
+    .login-title { font-weight: 800; font-size: 1.6rem; color: #111827; }
+    .login-subtitle { color: #6b7280; font-size: .9rem; }
+    .form-control { padding: 12px 16px; border: 1.5px solid #e5e7eb; border-radius: 10px; font-size: .92rem; }
+    .form-control:focus { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,.15); }
+    .input-group-text { background: #f9fafb; border: 1.5px solid #e5e7eb; border-radius: 10px 0 0 10px; color: #9ca3af; }
+    .input-group .form-control { border-left: none; border-radius: 0 10px 10px 0; }
+    .btn-login {
+      background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+      border: none; border-radius: 10px;
+      padding: 13px; font-weight: 700;
+      font-size: .95rem; letter-spacing: .3px;
+      transition: all .25s;
+    }
+    .btn-login:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(79,70,229,.4); }
+    .divider { display: flex; align-items: center; gap: 12px; color: #9ca3af; font-size: .82rem; }
+    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: #e5e7eb; }
+    .feature-item { display: flex; align-items: center; gap: 8px; font-size: .82rem; color: #6b7280; }
+    .feature-item i { color: #4f46e5; }
+  </style>
+</head>
+<body>
+<div class="login-wrapper">
+  <div class="login-card">
+    <!-- Brand -->
+    <div class="text-center mb-4">
+      <div class="brand-logo"><i class="fas fa-building"></i></div>
+      <h1 class="login-title">EmpPortal</h1>
+      <p class="login-subtitle">Employee Management System</p>
+    </div>
+
+    <!-- Flash Messages -->
+    {% if messages %}
+      {% for message in messages %}
+      <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show mb-3" role="alert" style="border-radius:10px;border:none;font-size:.88rem;">
+        <i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-exclamation-circle{% else %}fa-info-circle{% endif %} me-2"></i>
+        {{ message }}
+        <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert"></button>
+      </div>
+      {% endfor %}
+    {% endif %}
+
+    <!-- Non-field errors -->
+    {% if form.non_field_errors %}
+      <div class="alert alert-danger alert-dismissible fade show mb-3" role="alert" style="border-radius:10px;border:none;font-size:.88rem;">
+        <i class="fas fa-exclamation-circle me-2"></i>
+        {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+        <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert"></button>
+      </div>
+    {% endif %}
+
+    <!-- Login Form -->
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      <!-- Username -->
+      <div class="mb-3">
+        <label for="{{ form.username.id_for_label }}" class="form-label fw-semibold text-sm">Username</label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="fas fa-user"></i></span>
+          <input type="text"
+                 id="{{ form.username.id_for_label }}"
+                 name="{{ form.username.html_name }}"
+                 class="form-control {% if form.username.errors %}is-invalid{% endif %}"
+                 placeholder="Enter your username"
+                 value="{{ form.username.value|default:'' }}"
+                 autocomplete="username"
+                 autofocus />
+        </div>
+        {% if form.username.errors %}
+          <div class="invalid-feedback d-block mt-1">{{ form.username.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <!-- Password -->
+      <div class="mb-4">
+        <label for="{{ form.password.id_for_label }}" class="form-label fw-semibold text-sm">Password</label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="fas fa-lock"></i></span>
+          <input type="password"
+                 id="{{ form.password.id_for_label }}"
+                 name="{{ form.password.html_name }}"
+                 class="form-control {% if form.password.errors %}is-invalid{% endif %}"
+                 placeholder="Enter your password"
+                 autocomplete="current-password" />
+          <button type="button" class="btn btn-outline-secondary" id="toggle-password" tabindex="-1" style="border-radius:0 10px 10px 0;border-left:none;">
+            <i class="fas fa-eye" id="eye-icon"></i>
+          </button>
+        </div>
+        {% if form.password.errors %}
+          <div class="invalid-feedback d-block mt-1">{{ form.password.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-login w-100 text-white mb-4">
+        <i class="fas fa-sign-in-alt me-2"></i>Sign In
+      </button>
+    </form>
+
+    <div class="divider mb-4">Secure Access</div>
+
+    <!-- Features -->
+    <div class="d-flex flex-column gap-2">
+      <div class="feature-item"><i class="fas fa-shield-halved"></i><span>Secure & encrypted login</span></div>
+      <div class="feature-item"><i class="fas fa-clock"></i><span>Track attendance & leaves in real-time</span></div>
+      <div class="feature-item"><i class="fas fa-chart-bar"></i><span>View salary slips & performance</span></div>
+    </div>
+  </div>
+
+  <p class="text-center mt-4 text-muted" style="font-size:.78rem;">&copy; {% now "Y" %} EmpPortal. All rights reserved.</p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  const toggleBtn = document.getElementById('toggle-password');
+  const passInput = document.querySelector('input[name="password"]');
+  const eyeIcon   = document.getElementById('eye-icon');
+  if (toggleBtn && passInput) {
+    toggleBtn.addEventListener('click', () => {
+      const isPass = passInput.type === 'password';
+      passInput.type = isPass ? 'text' : 'password';
+      eyeIcon.className = isPass ? 'fas fa-eye-slash' : 'fas fa-eye';
+    });
+  }
+</script>
+</body>
+</html>

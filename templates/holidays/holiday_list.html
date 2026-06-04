@@ -1,0 +1,145 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Holidays{% endblock %}
+{% block page_title %}Public Holidays{% endblock %}
+{% block nav_holidays %}active{% endblock %}
+
+{% block breadcrumb %}
+  <li class="breadcrumb-item active">Holidays</li>
+{% endblock %}
+
+{% block content %}
+
+<!-- Year filter -->
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <div>
+    <h5 class="mb-0 fw-bold">{{ selected_year }} Holiday Calendar</h5>
+    <div class="text-sm text-muted">{{ holidays|length }} holiday(s) scheduled</div>
+  </div>
+  <form method="get" class="d-flex align-items-center gap-2">
+    <label class="text-sm fw-medium mb-0">Year:</label>
+    <select name="year" class="form-select form-select-sm" onchange="this.form.submit()" style="width:auto;">
+      {% for yr in year_choices %}
+      <option value="{{ yr }}" {% if yr == selected_year %}selected{% endif %}>{{ yr }}</option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+
+<div class="row g-4">
+
+  <!-- Holiday Table -->
+  <div class="col-12 {% if request.user.is_admin %}col-lg-8{% endif %}">
+    <div class="card fade-in-up">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table mb-0">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Date</th>
+                <th>Day</th>
+                <th>Holiday Name</th>
+                <th>Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for holiday in holidays %}
+              <tr>
+                <td class="text-muted text-xs">{{ forloop.counter }}</td>
+                <td class="fw-semibold text-sm">{{ holiday.date|date:"M j, Y" }}</td>
+                <td class="text-sm text-muted">{{ holiday.date|date:"l" }}</td>
+                <td>
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="text-sm fw-medium">{{ holiday.name }}</span>
+                    {% if holiday.description %}
+                    <i class="fas fa-info-circle text-muted text-xs" title="{{ holiday.description }}"></i>
+                    {% endif %}
+                  </div>
+                </td>
+                <td>
+                  {% if holiday.is_optional %}
+                    <span class="badge bg-secondary rounded-pill px-2 py-1 text-xs">Optional</span>
+                  {% else %}
+                    <span class="badge bg-danger rounded-pill px-2 py-1 text-xs">Mandatory</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="5" class="text-center py-5 text-muted">
+                  <i class="fas fa-calendar-times fa-2x mb-2 d-block opacity-25"></i>
+                  No holidays added for {{ selected_year }}.
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin Add Form -->
+  {% if request.user.is_admin %}
+  <div class="col-12 col-lg-4">
+    <div class="card fade-in-up delay-1">
+      <div class="card-header">
+        <i class="fas fa-plus-circle text-primary me-2"></i>Add Holiday
+      </div>
+      <div class="card-body p-4">
+        <form method="post" action="{% url 'holidays:admin_holiday' %}" novalidate>
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Holiday Name <span class="text-danger">*</span></label>
+            {{ form.name }}
+            {% if form.name.errors %}<div class="invalid-feedback d-block">{{ form.name.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Date <span class="text-danger">*</span></label>
+            {{ form.date }}
+            {% if form.date.errors %}<div class="invalid-feedback d-block">{{ form.date.errors.0 }}</div>{% endif %}
+          </div>
+          {% if form.description %}
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Description</label>
+            {{ form.description }}
+          </div>
+          {% endif %}
+          <div class="mb-4">
+            <div class="form-check">
+              {{ form.is_optional }}
+              <label class="form-check-label fw-medium" for="{{ form.is_optional.id_for_label }}">
+                Optional Holiday
+              </label>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="fas fa-plus me-2"></i>Add Holiday
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="card mt-3 fade-in-up delay-2">
+      <div class="card-body p-3">
+        <div class="fw-semibold text-sm mb-2">Legend</div>
+        <div class="d-flex flex-column gap-2">
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-danger rounded-pill px-2 py-1 text-xs">Mandatory</span>
+            <span class="text-xs text-muted">All employees must observe</span>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-secondary rounded-pill px-2 py-1 text-xs">Optional</span>
+            <span class="text-xs text-muted">Employee may choose to observe</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

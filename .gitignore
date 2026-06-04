@@ -1,0 +1,12 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+db.sqlite3
+media/
+staticfiles/
+*.log
+.DS_Store
+break_time_sample.html
+hacker_theme_sample.html

@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Notifications{% endblock %}
+{% block page_title %}Notifications{% endblock %}
+
+{% block breadcrumb %}
+  <li class="breadcrumb-item active">Notifications</li>
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <div>
+    <h5 class="mb-0 fw-bold">Notifications</h5>
+    <div class="text-sm text-muted">
+      {% if notifications %}{{ notifications|length }} notification(s){% else %}No notifications{% endif %}
+    </div>
+  </div>
+  {% if notifications %}
+  <button class="btn btn-outline-primary btn-sm" onclick="markAllRead()">
+    <i class="fas fa-check-double me-2"></i>Mark All as Read
+  </button>
+  {% endif %}
+</div>
+
+<div class="card fade-in-up">
+  <div class="card-body p-0">
+    {% if notifications %}
+    <div class="list-group list-group-flush">
+      {% for notif in notifications %}
+      <div class="list-group-item px-4 py-3 {% if not notif.is_read %}notification-unread{% endif %}"
+           id="notif-item-{{ notif.pk }}"
+           style="cursor:pointer;{% if not notif.is_read %}background:#eff6ff;border-left:3px solid #3b82f6;{% else %}border-left:3px solid transparent;{% endif %}"
+           onclick="markNotifRead({{ notif.pk }})">
+        <div class="d-flex align-items-start gap-3">
+
+          <!-- Icon -->
+          <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+               style="width:40px;height:40px;
+               {% if notif.notification_type == 'leave' %}background:#dbeafe;color:#1d4ed8;
+               {% elif notif.notification_type == 'salary' %}background:#d1fae5;color:#065f46;
+               {% elif notif.notification_type == 'attendance' %}background:#fef3c7;color:#92400e;
+               {% elif notif.notification_type == 'performance' %}background:#f3e8ff;color:#6b21a8;
+               {% elif notif.notification_type == 'announcement' %}background:#fce7f3;color:#9d174d;
+               {% elif notif.notification_type == 'system' %}background:#f1f5f9;color:#64748b;
+               {% else %}background:#f1f5f9;color:#64748b;{% endif %}">
+            <i class="fas
+              {% if notif.notification_type == 'leave' %}fa-calendar-minus
+              {% elif notif.notification_type == 'salary' %}fa-money-bill-wave
+              {% elif notif.notification_type == 'attendance' %}fa-clock
+              {% elif notif.notification_type == 'performance' %}fa-chart-line
+              {% elif notif.notification_type == 'announcement' %}fa-bullhorn
+              {% elif notif.notification_type == 'system' %}fa-cog
+              {% else %}fa-bell{% endif %}"></i>
+          </div>
+
+          <!-- Content -->
+          <div class="flex-grow-1 min-w-0">
+            <div class="d-flex justify-content-between align-items-start gap-2">
+              <div class="fw-semibold text-sm {% if not notif.is_read %}text-primary{% endif %}">
+                {{ notif.title }}
+              </div>
+              <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                {% if not notif.is_read %}
+                  <div class="rounded-circle bg-primary" style="width:8px;height:8px;"></div>
+                {% endif %}
+                <div class="text-xs text-muted">{{ notif.created_at|timesince }} ago</div>
+              </div>
+            </div>
+            <div class="text-sm text-muted mt-1">{{ notif.message }}</div>
+            {% if notif.link %}
+            <a href="{{ notif.link }}" class="text-xs text-primary mt-1 d-inline-block" onclick="event.stopPropagation();">
+              View details <i class="fas fa-arrow-right ms-1"></i>
+            </a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5 text-muted">
+      <div class="mb-3" style="font-size:3rem;opacity:0.15;">
+        <i class="fas fa-bell-slash"></i>
+      </div>
+      <p class="fw-medium mb-1">No notifications</p>
+      <p class="text-sm">You're all caught up! Check back later.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function markNotifRead(pk) {
+  fetch(`/notifications/${pk}/read/`, {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': getCookie('csrftoken'),
+      'Content-Type': 'application/json'
+    }
+  })
+  .then(res => {
+    if (res.ok) {
+      const item = document.getElementById('notif-item-' + pk);
+      if (item) {
+        item.style.background = '';
+        item.style.borderLeft = '3px solid transparent';
+        const dot = item.querySelector('.bg-primary.rounded-circle[style*="8px"]');
+        if (dot) dot.remove();
+        const title = item.querySelector('.fw-semibold');
+        if (title) title.classList.remove('text-primary');
+      }
+      // Update badge count
+      const badge = document.getElementById('notif-badge');
+      if (badge) {
+        let count = parseInt(badge.textContent) || 0;
+        count = Math.max(0, count - 1);
+        if (count === 0) badge.style.display = 'none';
+        else badge.textContent = count > 9 ? '9+' : count;
+      }
+    }
+  })
+  .catch(() => {});
+}
+
+function markAllRead() {
+  fetch('/notifications/mark-all-read/', {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': getCookie('csrftoken'),
+      'Content-Type': 'application/json'
+    }
+  })
+  .then(res => {
+    if (res.ok) {
+      document.querySelectorAll('[id^="notif-item-"]').forEach(item => {
+        item.style.background = '';
+        item.style.borderLeft = '3px solid transparent';
+        const dot = item.querySelector('.bg-primary.rounded-circle[style*="8px"]');
+        if (dot) dot.remove();
+        const title = item.querySelector('.fw-semibold');
+        if (title) title.classList.remove('text-primary');
+      });
+      const badge = document.getElementById('notif-badge');
+      if (badge) badge.style.display = 'none';
+    }
+  })
+  .catch(() => {});
+}
+
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    for (const cookie of document.cookie.split(';')) {
+      const c = cookie.trim();
+      if (c.startsWith(name + '=')) {
+        cookieValue = decodeURIComponent(c.slice(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
+</script>
+{% endblock %}

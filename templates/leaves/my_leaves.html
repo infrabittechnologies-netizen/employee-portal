@@ -1,0 +1,202 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}My Leaves{% endblock %}
+{% block page_title %}My Leaves{% endblock %}
+{% block nav_leaves %}active{% endblock %}
+
+{% block breadcrumb %}
+  <li class="breadcrumb-item active">My Leaves</li>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Action Bar ── -->
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <div>
+    <h5 class="mb-0 fw-bold">Leave Management</h5>
+    <div class="text-sm text-muted">View balances and track your leave requests</div>
+  </div>
+  <a href="{% url 'leaves:apply_leave' %}" class="btn btn-primary">
+    <i class="fas fa-plus me-2"></i>Apply for Leave
+  </a>
+</div>
+
+<!-- ── Leave Balance Cards ── -->
+<div class="row g-3 mb-4">
+  {% for lb in balances %}
+  <div class="col-12 col-sm-6 col-xl-3 fade-in-up" style="animation-delay:{{ forloop.counter0|floatformat:1 }}00ms">
+    <div class="card h-100">
+      <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+          <div>
+            <div class="fw-bold text-sm">{{ lb.leave_type.name }}</div>
+            <div class="text-xs text-muted mt-1">{{ lb.year }} Allocation</div>
+          </div>
+          <span class="badge rounded-circle p-2" style="background:{{ lb.leave_type.color }}20;color:{{ lb.leave_type.color }};font-size:.7rem;">
+            {% if lb.leave_type.is_paid %}Paid{% else %}Unpaid{% endif %}
+          </span>
+        </div>
+
+        <!-- Progress -->
+        <div class="d-flex justify-content-between text-sm mb-1">
+          <span class="text-muted">Used</span>
+          <span class="fw-semibold">{{ lb.used }} / {{ lb.total_allocated }} days</span>
+        </div>
+        <div class="progress leave-progress mb-3">
+          {% if lb.total_allocated > 0 %}
+          <div class="progress-bar" role="progressbar"
+               style="width:{% widthratio lb.used lb.total_allocated 100 %}%;background:{{ lb.leave_type.color }};"
+               aria-valuenow="{{ lb.used }}" aria-valuemin="0" aria-valuemax="{{ lb.total_allocated }}">
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="d-flex justify-content-between">
+          <div class="text-center">
+            <div class="fw-bold" style="font-size:1.3rem;color:{{ lb.leave_type.color }};">{{ lb.remaining }}</div>
+            <div class="text-xs text-muted">Remaining</div>
+          </div>
+          <div class="text-center">
+            <div class="fw-bold text-muted" style="font-size:1.3rem;">{{ lb.used }}</div>
+            <div class="text-xs text-muted">Used</div>
+          </div>
+          <div class="text-center">
+            <div class="fw-bold text-muted" style="font-size:1.3rem;">{{ lb.total_allocated }}</div>
+            <div class="text-xs text-muted">Total</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body text-center py-5 text-muted">
+        <i class="fas fa-calendar-times fa-3x mb-3 opacity-25"></i>
+        <p>No leave balances have been assigned to you yet.</p>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- ── Leave History ── -->
+<div class="card fade-in-up delay-2">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <div><i class="fas fa-history text-secondary me-2"></i>Leave History</div>
+    <div class="d-flex gap-2 align-items-center">
+      <!-- Status filter -->
+      <form method="get" class="d-flex gap-2">
+        <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">All Status</option>
+          <option value="pending"   {% if request.GET.status == "pending" %}selected{% endif %}>Pending</option>
+          <option value="approved"  {% if request.GET.status == "approved" %}selected{% endif %}>Approved</option>
+          <option value="rejected"  {% if request.GET.status == "rejected" %}selected{% endif %}>Rejected</option>
+          <option value="cancelled" {% if request.GET.status == "cancelled" %}selected{% endif %}>Cancelled</option>
+        </select>
+      </form>
+      <span class="badge bg-light text-muted">{{ applications.paginator.count|default:0 }} records</span>
+    </div>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table mb-0">
+        <thead>
+          <tr>
+            <th>Leave Type</th>
+            <th>From</th>
+            <th>To</th>
+            <th>Days</th>
+            <th>Reason</th>
+            <th>Applied On</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for leave in applications %}
+          <tr>
+            <td>
+              <span class="badge rounded-pill text-white text-xs px-2 py-1" style="background:{{ leave.leave_type.color }};">
+                {{ leave.leave_type.name }}
+              </span>
+            </td>
+            <td class="text-sm fw-medium">{{ leave.from_date|date:"M j, Y" }}</td>
+            <td class="text-sm">{{ leave.to_date|date:"M j, Y" }}</td>
+            <td class="text-sm fw-semibold">{{ leave.total_days }}</td>
+            <td class="text-sm text-muted">{{ leave.reason|truncatechars:50 }}</td>
+            <td class="text-sm text-muted">{{ leave.applied_on|date:"M j, Y" }}</td>
+            <td>
+              {% if leave.status == 'pending' %}
+                <span class="badge bg-warning text-dark rounded-pill px-2 py-1 text-xs">
+                  <i class="fas fa-clock me-1"></i>Pending
+                </span>
+              {% elif leave.status == 'approved' %}
+                <span class="badge bg-success rounded-pill px-2 py-1 text-xs">
+                  <i class="fas fa-check me-1"></i>Approved
+                </span>
+              {% elif leave.status == 'rejected' %}
+                <span class="badge bg-danger rounded-pill px-2 py-1 text-xs">
+                  <i class="fas fa-times me-1"></i>Rejected
+                </span>
+              {% else %}
+                <span class="badge bg-secondary rounded-pill px-2 py-1 text-xs">
+                  <i class="fas fa-ban me-1"></i>Cancelled
+                </span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="d-flex gap-1">
+                <a href="{% url 'leaves:leave_detail' leave.pk %}" class="btn btn-icon btn-sm btn-outline-primary" title="View Details">
+                  <i class="fas fa-eye"></i>
+                </a>
+                {% if leave.status == 'pending' %}
+                <a href="{% url 'leaves:cancel_leave' leave.pk %}"
+                   class="btn btn-icon btn-sm btn-outline-danger"
+                   title="Cancel"
+                   onclick="return confirm('Cancel this leave request?')">
+                  <i class="fas fa-times"></i>
+                </a>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="8" class="text-center py-5 text-muted">
+              <i class="fas fa-calendar-plus fa-2x mb-2 d-block opacity-25"></i>
+              No leave requests found. <a href="{% url 'leaves:apply_leave' %}">Apply now</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Pagination -->
+  {% if applications.has_other_pages %}
+  <div class="card-footer d-flex justify-content-center py-3">
+    <nav>
+      <ul class="pagination pagination-sm mb-0">
+        {% if applications.has_previous %}
+        <li class="page-item"><a class="page-link" href="?page={{ applications.previous_page_number }}&status={{ request.GET.status }}"><i class="fas fa-chevron-left"></i></a></li>
+        {% endif %}
+        {% for num in applications.paginator.page_range %}
+          {% if applications.number == num %}
+          <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+          {% elif num > applications.number|add:"-3" and num < applications.number|add:"3" %}
+          <li class="page-item"><a class="page-link" href="?page={{ num }}&status={{ request.GET.status }}">{{ num }}</a></li>
+          {% endif %}
+        {% endfor %}
+        {% if applications.has_next %}
+        <li class="page-item"><a class="page-link" href="?page={{ applications.next_page_number }}&status={{ request.GET.status }}"><i class="fas fa-chevron-right"></i></a></li>
+        {% endif %}
+      </ul>
+    </nav>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

@@ -1,0 +1,217 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Review — {{ review.get_review_period_display }}{% endblock %}
+{% block page_title %}Performance Review Detail{% endblock %}
+{% block nav_performance %}active{% endblock %}
+
+{% block breadcrumb %}
+  <li class="breadcrumb-item"><a href="{% url 'performance:my_performance' %}" class="text-decoration-none text-muted">Performance</a></li>
+  <li class="breadcrumb-item active">{{ review.get_review_period_display }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+
+  <!-- Review Card -->
+  <div class="col-12 col-lg-8">
+    <div class="card fade-in-up">
+      <!-- Header -->
+      <div style="background:linear-gradient(135deg,#1e3a8a,#3b82f6);color:white;padding:1.75rem 2rem;border-radius:16px 16px 0 0;">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+          <div>
+            <div class="text-white opacity-75 text-xs text-uppercase mb-1">Performance Review</div>
+            <div class="fw-bold fs-4">{{ review.get_review_period_display }}</div>
+            <div class="text-white opacity-75 text-sm mt-1">
+              {{ review.employee.get_full_name }} &bull; {{ review.employee.designation|default:"" }}
+            </div>
+          </div>
+          <div class="text-end">
+            <div class="text-white opacity-75 text-xs mb-1">Overall Rating</div>
+            <div class="d-flex gap-1 justify-content-end">
+              {% for i in "12345" %}
+              <i class="fas fa-star {% if forloop.counter <= review.rating %}text-warning{% else %}text-white opacity-25{% endif %}"></i>
+              {% endfor %}
+            </div>
+            <div class="fw-bold mt-1">{{ review.rating }}/5</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-body p-4">
+
+        <!-- Score breakdown bars -->
+        <h6 class="fw-bold mb-4"><i class="fas fa-chart-bar me-2 text-secondary"></i>Score Breakdown</h6>
+
+        <div class="mb-3">
+          <div class="d-flex justify-content-between text-sm mb-1">
+            <span class="fw-medium">Attendance & Punctuality</span>
+            <span class="fw-bold text-success">{{ review.attendance_score }}/20</span>
+          </div>
+          <div class="progress" style="height:10px;border-radius:10px;">
+            <div class="progress-bar bg-success" style="width:{% widthratio review.attendance_score 20 100 %}%;border-radius:10px;" data-val="{{ review.attendance_score }}"></div>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <div class="d-flex justify-content-between text-sm mb-1">
+            <span class="fw-medium">Productivity & Output</span>
+            <span class="fw-bold text-primary">{{ review.productivity_score }}/20</span>
+          </div>
+          <div class="progress" style="height:10px;border-radius:10px;">
+            <div class="progress-bar bg-primary" style="width:{% widthratio review.productivity_score 20 100 %}%;border-radius:10px;"></div>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <div class="d-flex justify-content-between text-sm mb-1">
+            <span class="fw-medium">Quality of Work</span>
+            <span class="fw-bold text-info">{{ review.quality_score }}/20</span>
+          </div>
+          <div class="progress" style="height:10px;border-radius:10px;">
+            <div class="progress-bar bg-info" style="width:{% widthratio review.quality_score 20 100 %}%;border-radius:10px;"></div>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <div class="d-flex justify-content-between text-sm mb-1">
+            <span class="fw-medium">Teamwork & Collaboration</span>
+            <span class="fw-bold text-warning">{{ review.teamwork_score }}/20</span>
+          </div>
+          <div class="progress" style="height:10px;border-radius:10px;">
+            <div class="progress-bar bg-warning" style="width:{% widthratio review.teamwork_score 20 100 %}%;border-radius:10px;"></div>
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <div class="d-flex justify-content-between text-sm mb-1">
+            <span class="fw-medium">Communication Skills</span>
+            <span class="fw-bold text-danger">{{ review.communication_score }}/20</span>
+          </div>
+          <div class="progress" style="height:10px;border-radius:10px;">
+            <div class="progress-bar bg-danger" style="width:{% widthratio review.communication_score 20 100 %}%;border-radius:10px;"></div>
+          </div>
+        </div>
+
+        <!-- Total -->
+        <div class="p-3 rounded-3 text-center mb-4" style="background:#f0f9ff;border:2px solid #bfdbfe;">
+          <div class="text-sm text-muted mb-1 fw-medium">Total Score</div>
+          <div class="fw-bold" style="font-size:2.5rem;
+            color:{% if review.total_score >= 80 %}#065f46{% elif review.total_score >= 60 %}#1e40af{% elif review.total_score >= 40 %}#92400e{% else %}#991b1b{% endif %}">
+            {{ review.total_score }}
+          </div>
+          <div class="text-muted text-sm">out of 100</div>
+        </div>
+
+        <!-- Chart -->
+        <div class="mb-4">
+          <canvas id="radarChart" height="250"></canvas>
+        </div>
+
+        <!-- Comments -->
+        {% if review.comments %}
+        <div class="mb-3">
+          <div class="text-xs text-muted fw-medium text-uppercase mb-2">Comments & Feedback</div>
+          <div class="p-3 rounded-3" style="background:#f8fafc;border:1px solid #e2e8f0;">
+            {{ review.comments|linebreaksbr }}
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Goals -->
+        {% if review.goals %}
+        <div class="mb-3">
+          <div class="text-xs text-muted fw-medium text-uppercase mb-2">Goals for Next Period</div>
+          <div class="p-3 rounded-3" style="background:#f0fdf4;border:1px solid #bbf7d0;">
+            {{ review.goals|linebreaksbr }}
+          </div>
+        </div>
+        {% endif %}
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="col-12 col-lg-4">
+    <div class="card fade-in-up delay-1">
+      <div class="card-body p-4">
+        <h6 class="fw-bold mb-3">Review Details</h6>
+        <dl class="row g-2 text-sm mb-0">
+          <dt class="col-5 text-muted">Employee</dt>
+          <dd class="col-7 fw-medium">{{ review.employee.get_full_name }}</dd>
+          <dt class="col-5 text-muted">Department</dt>
+          <dd class="col-7">{{ review.employee.department|default:"—" }}</dd>
+          <dt class="col-5 text-muted">Period</dt>
+          <dd class="col-7 fw-medium">{{ review.get_review_period_display }}</dd>
+          <dt class="col-5 text-muted">Reviewer</dt>
+          <dd class="col-7">{{ review.reviewed_by.get_full_name }}</dd>
+          <dt class="col-5 text-muted">Date</dt>
+          <dd class="col-7">{{ review.created_at|date:"M j, Y" }}</dd>
+        </dl>
+      </div>
+    </div>
+
+    <div class="card mt-3 fade-in-up delay-2">
+      <div class="card-body p-4">
+        <div class="d-grid gap-2">
+          <a href="{% url 'performance:my_performance' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back
+          </a>
+          {% if request.user.is_manager_role %}
+          <a href="{% url 'performance:review_create' %}?employee={{ review.employee.pk }}" class="btn btn-outline-primary">
+            <i class="fas fa-plus me-2"></i>New Review
+          </a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const ctx = document.getElementById('radarChart');
+if (ctx) {
+  new Chart(ctx, {
+    type: 'radar',
+    data: {
+      labels: ['Attendance', 'Productivity', 'Quality', 'Teamwork', 'Communication'],
+      datasets: [{
+        label: 'Score (out of 20)',
+        data: [
+          {{ review.attendance_score }},
+          {{ review.productivity_score }},
+          {{ review.quality_score }},
+          {{ review.teamwork_score }},
+          {{ review.communication_score }}
+        ],
+        backgroundColor: 'rgba(79,70,229,0.15)',
+        borderColor: 'rgba(79,70,229,0.8)',
+        pointBackgroundColor: '#4f46e5',
+        pointBorderColor: '#fff',
+        pointRadius: 5,
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        r: {
+          min: 0,
+          max: 20,
+          ticks: { stepSize: 5, font: { size: 10 } },
+          pointLabels: { font: { size: 12, weight: '600' } },
+          grid: { color: 'rgba(0,0,0,0.06)' }
+        }
+      }
+    }
+  });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,244 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}My Performance{% endblock %}
+{% block page_title %}My Performance{% endblock %}
+{% block nav_performance %}active{% endblock %}
+
+{% block breadcrumb %}
+  <li class="breadcrumb-item active">My Performance</li>
+{% endblock %}
+
+{% block content %}
+
+{% with latest_review=reviews.first %}
+<!-- Latest Review -->
+{% if latest_review %}
+<div class="row g-4 mb-4">
+  <div class="col-12 col-lg-5">
+    <div class="card h-100 fade-in-up" style="background:linear-gradient(135deg,#1e3a8a,#3b82f6);color:white;border:none;">
+      <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+          <div>
+            <div class="text-white opacity-75 text-xs text-uppercase mb-1">Latest Review</div>
+            <div class="fw-bold fs-5">{{ latest_review.get_review_period_display }}</div>
+          </div>
+          <div class="rounded-3 p-2" style="background:rgba(255,255,255,0.15);">
+            <i class="fas fa-star fa-lg text-warning"></i>
+          </div>
+        </div>
+
+        <!-- Star Rating -->
+        <div class="mb-3">
+          <div class="text-white opacity-75 text-xs mb-2">Overall Rating</div>
+          <div class="d-flex align-items-center gap-2">
+            <div class="d-flex gap-1">
+              {% for i in "12345" %}
+              <i class="fas fa-star {% if forloop.counter <= latest_review.rating %}text-warning{% else %}text-white opacity-25{% endif %} fa-lg"></i>
+              {% endfor %}
+            </div>
+            <span class="fw-bold fs-5 text-white">{{ latest_review.rating }}/5</span>
+          </div>
+        </div>
+
+        <!-- Score -->
+        <div class="p-3 rounded-3 mt-3" style="background:rgba(255,255,255,0.15);">
+          <div class="text-white opacity-75 text-xs mb-1">Total Score</div>
+          <div class="fw-bold" style="font-size:2rem;">{{ latest_review.total_score }}<span class="text-sm opacity-75">/100</span></div>
+        </div>
+
+        <div class="mt-3 text-xs text-white opacity-75">
+          Reviewed by {{ latest_review.reviewed_by.get_full_name }} &bull; {{ latest_review.created_at|date:"M j, Y" }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Score Breakdown -->
+  <div class="col-12 col-lg-7">
+    <div class="card h-100 fade-in-up delay-1">
+      <div class="card-header">
+        <i class="fas fa-chart-bar text-secondary me-2"></i>Score Breakdown
+      </div>
+      <div class="card-body p-4">
+        {% with scores=latest_review %}
+        <div class="mb-3">
+          <div class="d-flex justify-content-between text-sm mb-1">
+            <span class="fw-medium">Attendance</span>
+            <span class="text-muted">{{ scores.attendance_score }}/20</span>
+          </div>
+          <div class="progress" style="height:8px;border-radius:10px;">
+            <div class="progress-bar bg-success" style="width:{% widthratio scores.attendance_score 20 100 %}%;border-radius:10px;"></div>
+          </div>
+        </div>
+        <div class="mb-3">
+          <div class="d-flex justify-content-between text-sm mb-1">
+            <span class="fw-medium">Productivity</span>
+            <span class="text-muted">{{ scores.productivity_score }}/20</span>
+          </div>
+          <div class="progress" style="height:8px;border-radius:10px;">
+            <div class="progress-bar bg-primary" style="width:{% widthratio scores.productivity_score 20 100 %}%;border-radius:10px;"></div>
+          </div>
+        </div>
+        <div class="mb-3">
+          <div class="d-flex justify-content-between text-sm mb-1">
+            <span class="fw-medium">Quality of Work</span>
+            <span class="text-muted">{{ scores.quality_score }}/20</span>
+          </div>
+          <div class="progress" style="height:8px;border-radius:10px;">
+            <div class="progress-bar bg-info" style="width:{% widthratio scores.quality_score 20 100 %}%;border-radius:10px;"></div>
+          </div>
+        </div>
+        <div class="mb-3">
+          <div class="d-flex justify-content-between text-sm mb-1">
+            <span class="fw-medium">Teamwork</span>
+            <span class="text-muted">{{ scores.teamwork_score }}/20</span>
+          </div>
+          <div class="progress" style="height:8px;border-radius:10px;">
+            <div class="progress-bar bg-warning" style="width:{% widthratio scores.teamwork_score 20 100 %}%;border-radius:10px;"></div>
+          </div>
+        </div>
+        <div class="mb-3">
+          <div class="d-flex justify-content-between text-sm mb-1">
+            <span class="fw-medium">Communication</span>
+            <span class="text-muted">{{ scores.communication_score }}/20</span>
+          </div>
+          <div class="progress" style="height:8px;border-radius:10px;">
+            <div class="progress-bar bg-danger" style="width:{% widthratio scores.communication_score 20 100 %}%;border-radius:10px;"></div>
+          </div>
+        </div>
+        {% endwith %}
+      </div>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="card mb-4 fade-in-up">
+  <div class="card-body text-center py-5 text-muted">
+    <i class="fas fa-chart-line fa-3x mb-3 opacity-25"></i>
+    <p class="mb-0">No performance reviews found.</p>
+  </div>
+</div>
+{% endif %}
+{% endwith %}
+
+<!-- KPIs -->
+<div class="card mb-4 fade-in-up delay-2">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <div><i class="fas fa-bullseye text-primary me-2"></i>Key Performance Indicators (KPIs)</div>
+    {% if request.user.is_manager_role %}
+    <a href="{% url 'performance:kpi_create' %}" class="btn btn-sm btn-primary">
+      <i class="fas fa-plus me-1"></i>Add KPI
+    </a>
+    {% endif %}
+  </div>
+  <div class="card-body p-0">
+    {% if kpis %}
+    <div class="list-group list-group-flush">
+      {% for kpi in kpis %}
+      <div class="list-group-item px-4 py-3">
+        <div class="d-flex justify-content-between align-items-start">
+          <div class="flex-grow-1 me-3">
+            <div class="fw-semibold text-sm">{{ kpi.title }}</div>
+            {% if kpi.description %}
+            <div class="text-xs text-muted mt-1">{{ kpi.description }}</div>
+            {% endif %}
+            {% if kpi.target %}
+            <div class="text-xs text-muted mt-1">Target: <strong>{{ kpi.target }}</strong></div>
+            {% endif %}
+          </div>
+          <div class="text-end">
+            {% if kpi.status == 'achieved' %}
+              <span class="badge bg-success rounded-pill px-2 py-1 text-xs"><i class="fas fa-check me-1"></i>Achieved</span>
+            {% elif kpi.status == 'on_track' %}
+              <span class="badge bg-primary rounded-pill px-2 py-1 text-xs"><i class="fas fa-arrow-up me-1"></i>On Track</span>
+            {% elif kpi.status == 'in_progress' %}
+              <span class="badge bg-warning text-dark rounded-pill px-2 py-1 text-xs"><i class="fas fa-spinner me-1"></i>In Progress</span>
+            {% elif kpi.status == 'missed' %}
+              <span class="badge bg-danger rounded-pill px-2 py-1 text-xs"><i class="fas fa-times me-1"></i>Missed</span>
+            {% else %}
+              <span class="badge bg-secondary rounded-pill px-2 py-1 text-xs">{{ kpi.status|capfirst }}</span>
+            {% endif %}
+            {% if kpi.due_date %}
+            <div class="text-xs text-muted mt-1">Due: {{ kpi.due_date|date:"M j, Y" }}</div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5 text-muted">
+      <i class="fas fa-bullseye fa-2x mb-2 opacity-25"></i>
+      <p class="mb-0 text-sm">No KPIs assigned yet.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Review History -->
+<div class="card fade-in-up delay-3">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <div><i class="fas fa-history text-secondary me-2"></i>Review History</div>
+    {% if request.user.is_manager_role %}
+    <a href="{% url 'performance:review_create' %}" class="btn btn-sm btn-outline-primary">
+      <i class="fas fa-plus me-1"></i>New Review
+    </a>
+    {% endif %}
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table mb-0">
+        <thead>
+          <tr>
+            <th>Period</th>
+            <th>Rating</th>
+            <th class="text-center">Score</th>
+            <th>Reviewer</th>
+            <th>Date</th>
+            <th class="text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for review in reviews %}
+          <tr>
+            <td class="fw-semibold text-sm">{{ review.get_review_period_display }}</td>
+            <td>
+              <div class="d-flex gap-1">
+                {% for i in "12345" %}
+                <i class="fas fa-star text-xs {% if forloop.counter <= review.rating %}text-warning{% else %}text-muted opacity-25{% endif %}"></i>
+                {% endfor %}
+              </div>
+            </td>
+            <td class="text-center">
+              <span class="badge rounded-pill px-3 py-2
+                {% if review.total_score >= 80 %}bg-success
+                {% elif review.total_score >= 60 %}bg-primary
+                {% elif review.total_score >= 40 %}bg-warning text-dark
+                {% else %}bg-danger{% endif %}">
+                {{ review.total_score }}/100
+              </span>
+            </td>
+            <td class="text-sm">{{ review.reviewed_by.get_full_name }}</td>
+            <td class="text-sm text-muted">{{ review.created_at|date:"M j, Y" }}</td>
+            <td class="text-center">
+              <a href="{% url 'performance:review_detail' review.pk %}" class="btn btn-icon btn-sm btn-outline-primary" title="View">
+                <i class="fas fa-eye"></i>
+              </a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="6" class="text-center py-5 text-muted">
+              <i class="fas fa-chart-line fa-2x mb-2 d-block opacity-25"></i>
+              No performance reviews on record.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

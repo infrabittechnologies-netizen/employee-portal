@@ -1,0 +1,258 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}My Salary{% endblock %}
+{% block page_title %}My Salary{% endblock %}
+{% block nav_salary %}active{% endblock %}
+
+{% block breadcrumb %}
+  <li class="breadcrumb-item active">My Salary</li>
+{% endblock %}
+
+{% block content %}
+
+{% with latest_payslip=payslips.first %}
+
+<!-- Current Month Salary Overview -->
+{% if latest_payslip %}
+<div class="row g-4 mb-4">
+  <div class="col-12 col-lg-5">
+    <div class="card h-100 fade-in-up" style="background:linear-gradient(135deg,#4f46e5 0%,#7c3aed 100%);color:white;border:none;">
+      <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+          <div>
+            <div class="text-white opacity-75 text-sm mb-1">Latest Payslip</div>
+            <div class="fw-bold fs-5">Month {{ latest_payslip.month }}, {{ latest_payslip.year }}</div>
+          </div>
+          <div class="rounded-3 p-2" style="background:rgba(255,255,255,0.15);">
+            <i class="fas fa-money-bill-wave fa-lg"></i>
+          </div>
+        </div>
+
+        <div class="row g-2 mt-2">
+          <div class="col-6">
+            <div class="p-3 rounded-3" style="background:rgba(255,255,255,0.12);">
+              <div class="text-white opacity-75 text-xs mb-1">Basic Salary</div>
+              <div class="fw-bold text-white">PKR {{ latest_payslip.basic_salary|floatformat:0 }}</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="p-3 rounded-3" style="background:rgba(255,255,255,0.12);">
+              <div class="text-white opacity-75 text-xs mb-1">Allowances</div>
+              <div class="fw-bold text-white">PKR {{ latest_payslip.total_allowances|floatformat:0|default:"0" }}</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="p-3 rounded-3" style="background:rgba(255,255,255,0.12);">
+              <div class="text-white opacity-75 text-xs mb-1">Deductions</div>
+              <div class="fw-bold text-white">- PKR {{ latest_payslip.total_deductions|floatformat:0|default:"0" }}</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="p-3 rounded-3" style="background:rgba(255,255,255,0.25);">
+              <div class="text-white opacity-75 text-xs mb-1">Net Salary</div>
+              <div class="fw-bold text-white fs-6">PKR {{ latest_payslip.net_salary|floatformat:0 }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-3 d-flex justify-content-between align-items-center">
+          <span class="badge {% if latest_payslip.status == 'paid' %}bg-success{% else %}bg-warning text-dark{% endif %} px-3 py-2">
+            {% if latest_payslip.status == 'paid' %}<i class="fas fa-check-circle me-1"></i>Paid{% else %}<i class="fas fa-clock me-1"></i>Pending{% endif %}
+          </span>
+          <a href="{% url 'salary:payslip_detail' latest_payslip.pk %}" class="btn btn-sm btn-light">
+            <i class="fas fa-eye me-1"></i>View Details
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Stats -->
+  <div class="col-12 col-lg-7">
+    <div class="row g-3 h-100">
+      <div class="col-6">
+        <div class="card text-center p-3 h-100 fade-in-up delay-1">
+          <div style="width:44px;height:44px;border-radius:12px;background:#d1fae5;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">
+            <i class="fas fa-wallet text-success"></i>
+          </div>
+          <div class="fw-bold" style="font-size:1.2rem;color:#065f46;">
+            PKR {{ latest_payslip.basic_salary|floatformat:0 }}
+          </div>
+          <div class="text-xs text-muted">Basic Salary</div>
+        </div>
+      </div>
+      <div class="col-6">
+        <div class="card text-center p-3 h-100 fade-in-up delay-1">
+          <div style="width:44px;height:44px;border-radius:12px;background:#dbeafe;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">
+            <i class="fas fa-plus-circle" style="color:#1e40af;"></i>
+          </div>
+          <div class="fw-bold" style="font-size:1.2rem;color:#1e40af;">
+            PKR {{ latest_payslip.total_allowances|floatformat:0|default:"0" }}
+          </div>
+          <div class="text-xs text-muted">Total Bonuses</div>
+        </div>
+      </div>
+      <div class="col-6">
+        <div class="card text-center p-3 h-100 fade-in-up delay-2">
+          <div style="width:44px;height:44px;border-radius:12px;background:#fee2e2;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">
+            <i class="fas fa-minus-circle text-danger"></i>
+          </div>
+          <div class="fw-bold" style="font-size:1.2rem;color:#991b1b;">
+            PKR {{ latest_payslip.total_deductions|floatformat:0|default:"0" }}
+          </div>
+          <div class="text-xs text-muted">Total Deductions</div>
+        </div>
+      </div>
+      <div class="col-6">
+        <div class="card text-center p-3 h-100 fade-in-up delay-2">
+          <div style="width:44px;height:44px;border-radius:12px;background:#f3e8ff;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">
+            <i class="fas fa-hand-holding-usd" style="color:#7c3aed;"></i>
+          </div>
+          <div class="fw-bold" style="font-size:1.2rem;color:#7c3aed;">
+            PKR {{ latest_payslip.net_salary|floatformat:0 }}
+          </div>
+          <div class="text-xs text-muted">Net Salary</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="card mb-4 fade-in-up">
+  <div class="card-body text-center py-5 text-muted">
+    <i class="fas fa-file-invoice-dollar fa-3x mb-3 opacity-25"></i>
+    <p class="mb-0">No payslip generated yet.</p>
+  </div>
+</div>
+{% endif %}
+
+{% endwith %}
+
+<!-- Deductions & Bonuses for Current Month -->
+<div class="row g-4 mb-4">
+  <!-- Deductions -->
+  <div class="col-12 col-md-6">
+    <div class="card h-100 fade-in-up delay-2">
+      <div class="card-header">
+        <i class="fas fa-minus-circle text-danger me-2"></i>Deductions — Month {{ current_month }}, {{ current_year }}
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table mb-0">
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th class="text-end">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for d in current_deductions %}
+              <tr>
+                <td class="text-sm">{{ d.description|default:d.get_reason_display }}</td>
+                <td class="text-sm text-end text-danger fw-medium">- PKR {{ d.amount|floatformat:0 }}</td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="2" class="text-center py-4 text-muted text-sm">No deductions this month.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bonuses -->
+  <div class="col-12 col-md-6">
+    <div class="card h-100 fade-in-up delay-2">
+      <div class="card-header">
+        <i class="fas fa-gift text-success me-2"></i>Bonuses &amp; Allowances — Month {{ current_month }}, {{ current_year }}
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table mb-0">
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th class="text-end">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for b in current_bonuses %}
+              <tr>
+                <td class="text-sm">{{ b.title }}</td>
+                <td class="text-sm text-end text-success fw-medium">+ PKR {{ b.amount|floatformat:0 }}</td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="2" class="text-center py-4 text-muted text-sm">No bonuses this month.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Past Payslips -->
+<div class="card fade-in-up delay-3">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <div><i class="fas fa-history text-secondary me-2"></i>Payslip History</div>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table mb-0">
+        <thead>
+          <tr>
+            <th>Month/Year</th>
+            <th>Basic</th>
+            <th>Allowances</th>
+            <th>Deductions</th>
+            <th>Net Salary</th>
+            <th>Status</th>
+            <th class="text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ps in payslips %}
+          <tr>
+            <td class="fw-semibold text-sm">{{ ps.month }}/{{ ps.year }}</td>
+            <td class="text-sm">PKR {{ ps.basic_salary|floatformat:0 }}</td>
+            <td class="text-sm text-success">+ PKR {{ ps.total_allowances|floatformat:0|default:"0" }}</td>
+            <td class="text-sm text-danger">- PKR {{ ps.total_deductions|floatformat:0|default:"0" }}</td>
+            <td class="fw-bold text-sm">PKR {{ ps.net_salary|floatformat:0 }}</td>
+            <td>
+              <span class="badge rounded-pill px-2 py-1 text-xs {% if ps.status == 'paid' %}bg-success{% else %}bg-warning text-dark{% endif %}">
+                {% if ps.status == 'paid' %}Paid{% else %}Pending{% endif %}
+              </span>
+            </td>
+            <td class="text-center">
+              <div class="d-flex gap-1 justify-content-center">
+                <a href="{% url 'salary:payslip_detail' ps.pk %}" class="btn btn-icon btn-sm btn-outline-primary" title="View">
+                  <i class="fas fa-eye"></i>
+                </a>
+                <a href="{% url 'salary:download_payslip' ps.pk %}" class="btn btn-icon btn-sm btn-outline-secondary" title="Download PDF">
+                  <i class="fas fa-download"></i>
+                </a>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="7" class="text-center py-5 text-muted">
+              <i class="fas fa-file-invoice fa-2x mb-2 d-block opacity-25"></i>
+              No payslips found.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

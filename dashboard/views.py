@@ -1,0 +1,145 @@
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+from django.utils import timezone
+from attendance.models import Attendance
+from leaves.models import LeaveApplication, LeaveBalance
+from salary.models import SalaryDeduction, Payslip
+from performance.models import PerformanceReview
+from holidays.models import Holiday, Announcement
+from notifications_app.models import Notification
+from accounts.models import CustomUser, Department
+from attendance.schedule import get_break_status, get_post_break_status
+import datetime
+
+
+@login_required
+def dashboard_view(request):
+    today = timezone.now().date()
+    user = request.user
+
+    if user.is_admin or user.is_superuser:
+        return redirect('dashboard:admin_dashboard')
+
+    today_attendance = Attendance.objects.filter(employee=user, date=today).first()
+
+    # Detect break / post-break state (only when actively checked in)
+    _checked_in_active = (
+        today_attendance and
+        today_attendance.check_in and
+        not today_attendance.check_out
+    )
+    break_info = get_break_status() if _checked_in_active else None
+
+    # Detect if a break just ended and employee hasn't restarted yet
+    restarted_breaks = set()
+    if _checked_in_active:
+        restarted_breaks = set(
+            today_attendance.break_restarts.values_list('break_number', flat=True)
+        )
+    post_break_info = (
+        get_post_break_status(restarted_break_numbers=restarted_breaks)
+        if _checked_in_active and not break_info
+        else None
+    )
+
+    current_year = today.year
+    leave_balances = []   # no quota system — shown separately
+    pending_leaves = LeaveApplication.objects.filter(employee=user, status='pending').count()
+    # Approved paid-leave days this year
+    approved_leaves_this_year = sum(
+        a.total_days for a in LeaveApplication.objects.filter(
+            employee=user, status='approved', from_date__year=current_year
+        )
+    )
+    current_month_deductions = SalaryDeduction.objects.filter(
+        employee=user, month=today.month, year=today.year
+    ).order_by('-date')
+    total_deductions = sum(d.amount for d in current_month_deductions)
+    latest_payslip = Payslip.objects.filter(employee=user).first()
+    latest_review = PerformanceReview.objects.filter(employee=user).first()
+    upcoming_holidays = Holiday.objects.filter(
+        date__gte=today, date__lte=today + datetime.timedelta(days=30)
+    ).order_by('date')[:5]
+    announcements = Announcement.objects.filter(is_active=True).order_by('-posted_on')[:5]
+    notifications = Notification.objects.filter(recipient=user, is_read=False)[:5]
+    month_start = today.replace(day=1)
+    monthly_attendance = Attendance.objects.filter(employee=user, date__gte=month_start, date__lte=today)
+    present_days = monthly_attendance.filter(status__in=['present', 'late']).count()
+    absent_days = monthly_attendance.filter(status='absent').count()
+    late_days = monthly_attendance.filter(status='late').count()
+    show_birthday = bool(
+        user.date_of_birth and user.date_of_birth.month == today.month and user.date_of_birth.day == today.day
+    )
+    show_anniversary = bool(
+        user.joining_date and user.joining_date.month == today.month
+        and user.joining_date.day == today.day and user.joining_date.year != today.year
+    )
+    estimated_salary = float(latest_payslip.net_salary) if latest_payslip else (
+        float(user.basic_salary or 0) * 1.15 - float(total_deductions)
+    )
+
+    context = {
+        'today': today,
+        'today_attendance': today_attendance,
+        'break_info': break_info,
+        'post_break_info': post_break_info,
+        'leave_balances': leave_balances,
+        'approved_leaves_this_year': approved_leaves_this_year,
+        'pending_leaves': pending_leaves,
+        'current_month_deductions': current_month_deductions,
+        'total_deductions': total_deductions,
+        'latest_payslip': latest_payslip,
+        'latest_review': latest_review,
+        'upcoming_holidays': upcoming_holidays,
+        'announcements': announcements,
+        'notifications': notifications,
+        'present_days': present_days,
+        'absent_days': absent_days,
+        'late_days': late_days,
+        'show_birthday': show_birthday,
+        'show_anniversary': show_anniversary,
+        'estimated_salary': estimated_salary,
+    }
+    return render(request, 'dashboard/dashboard.html', context)
+
+
+@login_required
+def admin_dashboard_view(request):
+    if not (request.user.is_admin or request.user.is_superuser or request.user.is_manager_role):
+        return redirect('dashboard:dashboard')
+
+    today = timezone.now().date()
+    total_employees = CustomUser.objects.filter(is_active=True, role__in=['employee', 'manager']).count()
+    total_departments = Department.objects.count()
+    present_today = Attendance.objects.filter(date=today, status__in=['present', 'late']).count()
+    pending_leaves_count = LeaveApplication.objects.filter(status='pending').count()
+    departments = Department.objects.all()
+    dept_data = [{'name': d.name, 'count': d.employees.filter(is_active=True).count()} for d in departments]
+    recent_employees = CustomUser.objects.filter(role__in=['employee', 'manager']).order_by('-date_joined')[:5]
+    todays_attendance = Attendance.objects.filter(date=today).select_related('employee').order_by('-check_in')[:10]
+    recent_leaves = LeaveApplication.objects.filter(
+        status='pending'
+    ).select_related('employee', 'leave_type').order_by('-applied_on')[:8]
+    month_start = today.replace(day=1)
+    monthly_stats = Attendance.objects.filter(date__gte=month_start, date__lte=today)
+    month_present = monthly_stats.filter(status__in=['present', 'late']).count()
+    month_absent = monthly_stats.filter(status='absent').count()
+    month_late = monthly_stats.filter(status='late').count()
+
+    context = {
+        'total_employees': total_employees,
+        'total_departments': total_departments,
+        'present_today': present_today,
+        'pending_leaves_count': pending_leaves_count,
+        'dept_data': dept_data,
+        'recent_employees': recent_employees,
+        'todays_attendance': todays_attendance,
+        'recent_leaves': recent_leaves,
+        'today': today,
+        'month_present': month_present,
+        'month_absent': month_absent,
+        'month_late': month_late,
+    }
+    return render(request, 'dashboard/admin_dashboard.html', context)
+
+

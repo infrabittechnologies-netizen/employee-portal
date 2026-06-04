@@ -1,0 +1,223 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Performance Review Form{% endblock %}
+{% block page_title %}Performance Review{% endblock %}
+{% block nav_performance %}active{% endblock %}
+
+{% block breadcrumb %}
+  <li class="breadcrumb-item"><a href="{% url 'performance:my_performance' %}" class="text-decoration-none text-muted">Performance</a></li>
+  <li class="breadcrumb-item active">New Review</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .star-rating { display:flex; flex-direction:row-reverse; gap:6px; }
+  .star-rating input { display:none; }
+  .star-rating label { cursor:pointer; font-size:1.8rem; color:#d1d5db; transition:color 0.15s; }
+  .star-rating input:checked ~ label,
+  .star-rating label:hover,
+  .star-rating label:hover ~ label { color:#f59e0b; }
+  .score-slider { appearance:none; width:100%; height:6px; border-radius:10px; background:#e5e7eb; outline:none; }
+  .score-slider::-webkit-slider-thumb { appearance:none; width:18px; height:18px; border-radius:50%; background:#4f46e5; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,.3); }
+  .score-slider::-moz-range-thumb { width:18px; height:18px; border-radius:50%; background:#4f46e5; cursor:pointer; border:none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-xl-9">
+    <div class="card fade-in-up">
+      <div class="card-header">
+        <i class="fas fa-star text-warning me-2"></i>
+        {% if employee %}Performance Review — {{ employee.get_full_name }}{% else %}New Performance Review{% endif %}
+      </div>
+      <div class="card-body p-4">
+        <form method="post" novalidate>
+          {% csrf_token %}
+
+          <!-- Employee & Period -->
+          <div class="row g-3 mb-4 pb-4 border-bottom">
+            <div class="col-12 col-sm-6">
+              <label class="form-label fw-semibold">Employee <span class="text-danger">*</span></label>
+              {% if employee %}
+                <input type="hidden" name="employee" value="{{ employee.pk }}">
+                <div class="form-control bg-light">{{ employee.get_full_name }} ({{ employee.employee_id }})</div>
+              {% else %}
+                {{ form.employee }}
+              {% endif %}
+              {% if form.employee.errors %}<div class="invalid-feedback d-block">{{ form.employee.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="col-12 col-sm-6">
+              <label class="form-label fw-semibold">Review Period <span class="text-danger">*</span></label>
+              {{ form.period }}
+              {% if form.period.errors %}<div class="invalid-feedback d-block">{{ form.period.errors.0 }}</div>{% endif %}
+              <div class="form-text">e.g., "Q1 2025", "January 2025"</div>
+            </div>
+          </div>
+
+          <!-- Star Rating -->
+          <div class="mb-4 pb-4 border-bottom">
+            <label class="form-label fw-semibold d-block mb-3">Overall Rating <span class="text-danger">*</span></label>
+            <div class="star-rating">
+              <input type="radio" name="rating" id="star5" value="5" {% if form.rating.value == '5' %}checked{% endif %}>
+              <label for="star5" title="Outstanding"><i class="fas fa-star"></i></label>
+              <input type="radio" name="rating" id="star4" value="4" {% if form.rating.value == '4' %}checked{% endif %}>
+              <label for="star4" title="Exceeds Expectations"><i class="fas fa-star"></i></label>
+              <input type="radio" name="rating" id="star3" value="3" {% if form.rating.value == '3' %}checked{% endif %}>
+              <label for="star3" title="Meets Expectations"><i class="fas fa-star"></i></label>
+              <input type="radio" name="rating" id="star2" value="2" {% if form.rating.value == '2' %}checked{% endif %}>
+              <label for="star2" title="Below Expectations"><i class="fas fa-star"></i></label>
+              <input type="radio" name="rating" id="star1" value="1" {% if form.rating.value == '1' %}checked{% endif %}>
+              <label for="star1" title="Unsatisfactory"><i class="fas fa-star"></i></label>
+            </div>
+            <div class="d-flex justify-content-end gap-3 text-xs text-muted mt-2">
+              <span>1 - Poor</span><span>2 - Fair</span><span>3 - Good</span><span>4 - Very Good</span><span>5 - Excellent</span>
+            </div>
+            {% if form.rating.errors %}<div class="invalid-feedback d-block">{{ form.rating.errors.0 }}</div>{% endif %}
+          </div>
+
+          <!-- Score Sliders -->
+          <div class="mb-4 pb-4 border-bottom">
+            <h6 class="fw-bold mb-4"><i class="fas fa-sliders-h me-2 text-secondary"></i>Detailed Scores <span class="text-muted fw-normal text-sm">(each out of 20)</span></h6>
+
+            {% for field_name, label, color in "attendance_score,Attendance,success|productivity_score,Productivity,primary|quality_score,Quality of Work,info|teamwork_score,Teamwork,warning|communication_score,Communication,danger"|split:"|" %}
+            {% endfor %}
+
+            <!-- Attendance -->
+            <div class="mb-4">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="form-label fw-semibold mb-0">Attendance & Punctuality</label>
+                <span class="badge bg-success rounded-pill px-2" id="attendance-val">{{ form.attendance_score.value|default:10 }}</span>
+              </div>
+              <input type="range" name="attendance_score" id="attendance_score" class="score-slider"
+                     min="0" max="20" step="1" value="{{ form.attendance_score.value|default:10 }}"
+                     oninput="document.getElementById('attendance-val').textContent=this.value">
+              <div class="d-flex justify-content-between text-xs text-muted mt-1"><span>0</span><span>10</span><span>20</span></div>
+            </div>
+
+            <!-- Productivity -->
+            <div class="mb-4">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="form-label fw-semibold mb-0">Productivity & Output</label>
+                <span class="badge bg-primary rounded-pill px-2" id="productivity-val">{{ form.productivity_score.value|default:10 }}</span>
+              </div>
+              <input type="range" name="productivity_score" id="productivity_score" class="score-slider"
+                     min="0" max="20" step="1" value="{{ form.productivity_score.value|default:10 }}"
+                     oninput="document.getElementById('productivity-val').textContent=this.value">
+              <div class="d-flex justify-content-between text-xs text-muted mt-1"><span>0</span><span>10</span><span>20</span></div>
+            </div>
+
+            <!-- Quality -->
+            <div class="mb-4">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="form-label fw-semibold mb-0">Quality of Work</label>
+                <span class="badge bg-info text-dark rounded-pill px-2" id="quality-val">{{ form.quality_score.value|default:10 }}</span>
+              </div>
+              <input type="range" name="quality_score" id="quality_score" class="score-slider"
+                     min="0" max="20" step="1" value="{{ form.quality_score.value|default:10 }}"
+                     oninput="document.getElementById('quality-val').textContent=this.value">
+              <div class="d-flex justify-content-between text-xs text-muted mt-1"><span>0</span><span>10</span><span>20</span></div>
+            </div>
+
+            <!-- Teamwork -->
+            <div class="mb-4">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="form-label fw-semibold mb-0">Teamwork & Collaboration</label>
+                <span class="badge bg-warning text-dark rounded-pill px-2" id="teamwork-val">{{ form.teamwork_score.value|default:10 }}</span>
+              </div>
+              <input type="range" name="teamwork_score" id="teamwork_score" class="score-slider"
+                     min="0" max="20" step="1" value="{{ form.teamwork_score.value|default:10 }}"
+                     oninput="document.getElementById('teamwork-val').textContent=this.value">
+              <div class="d-flex justify-content-between text-xs text-muted mt-1"><span>0</span><span>10</span><span>20</span></div>
+            </div>
+
+            <!-- Communication -->
+            <div class="mb-4">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="form-label fw-semibold mb-0">Communication Skills</label>
+                <span class="badge bg-danger rounded-pill px-2" id="communication-val">{{ form.communication_score.value|default:10 }}</span>
+              </div>
+              <input type="range" name="communication_score" id="communication_score" class="score-slider"
+                     min="0" max="20" step="1" value="{{ form.communication_score.value|default:10 }}"
+                     oninput="document.getElementById('communication-val').textContent=this.value">
+              <div class="d-flex justify-content-between text-xs text-muted mt-1"><span>0</span><span>10</span><span>20</span></div>
+            </div>
+
+            <!-- Live Total -->
+            <div class="p-3 rounded-3 text-center" style="background:#f0f9ff;border:1px solid #bfdbfe;">
+              <div class="text-sm text-muted mb-1">Total Score (auto-calculated)</div>
+              <div class="fw-bold fs-4 text-primary" id="totalScore">50</div>
+              <div class="text-xs text-muted">out of 100</div>
+            </div>
+          </div>
+
+          <!-- Comments & Goals -->
+          <div class="row g-3 mb-4">
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold">Comments & Feedback</label>
+              {{ form.comments }}
+              {% if form.comments.errors %}<div class="invalid-feedback d-block">{{ form.comments.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold">Goals for Next Period</label>
+              {{ form.goals }}
+              {% if form.goals.errors %}<div class="invalid-feedback d-block">{{ form.goals.errors.0 }}</div>{% endif %}
+            </div>
+          </div>
+
+          <!-- Non-field errors -->
+          {% if form.non_field_errors %}
+          <div class="alert alert-danger py-2 px-3 rounded-3 mb-4">
+            {% for error in form.non_field_errors %}
+              <div><i class="fas fa-exclamation-circle me-1"></i>{{ error }}</div>
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          <!-- Actions -->
+          <div class="d-flex gap-3">
+            <button type="submit" class="btn btn-primary px-4">
+              <i class="fas fa-save me-2"></i>Submit Review
+            </button>
+            <a href="{% url 'performance:my_performance' %}" class="btn btn-outline-secondary px-4">Cancel</a>
+          </div>
+
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const fields = ['attendance_score','productivity_score','quality_score','teamwork_score','communication_score'];
+  function updateTotal() {
+    let total = 0;
+    fields.forEach(f => {
+      const el = document.getElementById(f);
+      if (el) total += parseInt(el.value) || 0;
+    });
+    const el = document.getElementById('totalScore');
+    if (el) {
+      el.textContent = total;
+      el.className = 'fw-bold fs-4 ' + (total >= 80 ? 'text-success' : total >= 60 ? 'text-primary' : total >= 40 ? 'text-warning' : 'text-danger');
+    }
+  }
+  fields.forEach(f => {
+    const el = document.getElementById(f);
+    if (el) el.addEventListener('input', updateTotal);
+  });
+  updateTotal();
+
+  // Add Bootstrap classes to form fields
+  document.querySelectorAll('select:not(.score-slider), textarea, input[type="text"]').forEach(el => {
+    if (!el.classList.contains('form-control') && !el.classList.contains('form-select') && !el.classList.contains('score-slider')) {
+      el.classList.add(el.tagName === 'SELECT' ? 'form-select' : 'form-control');
+    }
+  });
+})();
+</script>
+{% endblock %}
