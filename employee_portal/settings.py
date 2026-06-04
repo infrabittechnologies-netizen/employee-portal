@@ -42,6 +42,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'employee_portal.middleware.DesktopOnlyMiddleware',
 ]
 
 ROOT_URLCONF = 'employee_portal.urls'
