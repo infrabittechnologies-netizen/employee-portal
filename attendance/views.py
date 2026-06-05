@@ -14,7 +14,7 @@ from accounts.decorators import admin_required, manager_required
 from .models import Attendance, AttendanceBreak
 from .schedule import (
     is_weekend, get_shift_start, is_late_checkin, net_work_hours,
-    get_post_break_status, SHIFT_START, SHIFT_END, BREAKS,
+    get_break_status, get_post_break_status, SHIFT_START, SHIFT_END, BREAKS,
 )
 
 User = get_user_model()
@@ -381,6 +381,23 @@ def my_attendance_view(request):
     # Today's attendance record (for check-in / check-out widget)
     today_record = records_by_date.get(today)
 
+    # Live break / post-break state for the interactive check-in widget
+    # (mirrors the dashboard so the same widget renders identically here).
+    _checked_in_active = bool(
+        today_record and today_record.check_in and not today_record.check_out
+    )
+    break_info = get_break_status() if _checked_in_active else None
+    restarted_breaks = set()
+    if _checked_in_active:
+        restarted_breaks = set(
+            today_record.break_restarts.values_list('break_number', flat=True)
+        )
+    post_break_info = (
+        get_post_break_status(restarted_break_numbers=restarted_breaks)
+        if _checked_in_active and not break_info
+        else None
+    )
+
     context = {
         'year': year,
         'month': month,
@@ -388,6 +405,10 @@ def my_attendance_view(request):
         'calendar_weeks': calendar_weeks,
         'records': all_records,
         'today_record': today_record,
+        # Aliased for the shared check-in widget (same name as on the dashboard)
+        'today_attendance': today_record,
+        'break_info': break_info,
+        'post_break_info': post_break_info,
         'total_present': total_present,
         'total_late': total_late,
         'total_absent': total_absent,

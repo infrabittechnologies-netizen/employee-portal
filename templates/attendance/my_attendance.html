@@ -14,43 +14,124 @@
 <!-- ── Check-in Card + Stats ── -->
 <div class="row g-4 mb-4">
   <div class="col-12 col-md-5 col-xl-4">
-    <div class="card h-100 fade-in-up">
-      <div class="card-body p-4 d-flex flex-column align-items-center justify-content-center text-center">
-        <div class="live-clock mb-1" id="liveClock">--:--:--</div>
-        <div class="live-date mb-4" id="liveDate"></div>
+    <div class="card h-100 fade-in-up checkin-card{% if break_info %} break-active{% endif %}">
+      <div class="card-body p-4 d-flex flex-column align-items-center justify-content-center text-center gap-2">
 
-        {% if today_record %}
-          {% if today_record.check_in and today_record.check_out %}
-            <div class="badge bg-success fs-6 px-4 py-2 rounded-pill mb-3">
-              <i class="fas fa-check-circle me-2"></i>Completed
+        <!-- Live Clock -->
+        <div class="att-clock" id="liveClock">--:--</div>
+        <div class="att-label">Today's Attendance</div>
+
+        {% if today_attendance and today_attendance.check_in %}
+
+          <!-- Times row -->
+          <div class="att-times">
+            <div class="att-time-item">
+              <span class="att-time-cap">In</span>
+              <span class="att-time-val text-success">{{ today_attendance.check_in|time:"h:i A" }}</span>
             </div>
-            <div class="d-flex gap-4 text-center mt-2">
-              <div><div class="text-xs text-muted">Check In</div><div class="fw-bold">{{ today_record.check_in|time:"h:i A" }}</div></div>
-              <div><div class="text-xs text-muted">Check Out</div><div class="fw-bold">{{ today_record.check_out|time:"h:i A" }}</div></div>
-              <div><div class="text-xs text-muted">Hours</div><div class="fw-bold">{{ today_record.work_hours }}h</div></div>
+            {% if today_attendance.check_out %}
+            <div class="att-time-sep"></div>
+            <div class="att-time-item">
+              <span class="att-time-cap">Out</span>
+              <span class="att-time-val text-danger">{{ today_attendance.check_out|time:"h:i A" }}</span>
             </div>
-          {% elif today_record.check_in %}
-            <div class="badge badge-present fs-6 px-4 py-2 rounded-pill mb-3">
-              Checked In at {{ today_record.check_in|time:"h:i A" }}
+            {% endif %}
+          </div>
+
+          {% if today_attendance.check_out %}
+            <!-- ── DONE / CHECKED-OUT STATE ── -->
+            <div class="att-done-badge">
+              <i class="fas fa-check-circle me-1"></i>{{ today_attendance.work_hours }}h worked
             </div>
-            <button class="checkin-btn checkout-mode" id="checkOutBtn" onclick="handleCheckOut()">
-              <i class="fas fa-sign-out-alt"></i><span>Check Out</span>
+            <span class="badge rounded-pill px-3 py-2
+              {% if today_attendance.status == 'present' %}bg-success
+              {% elif today_attendance.status == 'late' %}bg-warning text-dark
+              {% else %}bg-secondary{% endif %} text-xs">
+              {{ today_attendance.get_status_display }}
+            </span>
+            <div class="att-recheckin-wrap">
+              <div class="att-recheckin-divider"><span>Accidentally checked out?</span></div>
+              <button id="checkInBtn" class="att-recheckin-btn" onclick="handleCheckIn()">
+                <i class="fas fa-undo me-1"></i>Check In Again
+              </button>
+            </div>
+
+          {% elif break_info %}
+            <!-- ── BREAK TIME STATE ── -->
+            <button class="att-action-btn att-onbreak" disabled>
+              <i class="fas fa-mug-hot att-btn-icon"></i>
+              <span>On Break</span>
             </button>
-            <div class="text-xs text-muted mt-3" id="feedback-area"></div>
-          {% endif %}
-        {% else %}
-          <p class="text-muted mb-3">You haven't checked in today.</p>
-          <button class="checkin-btn" id="checkInBtn" onclick="handleCheckIn()">
-            <i class="fas fa-sign-in-alt"></i><span>Check In</span>
-          </button>
-          <div class="text-xs text-muted mt-3" id="feedback-area"></div>
-        {% endif %}
+            <div class="att-break-badge">
+              <i class="fas fa-pause-circle me-1"></i>Break {{ break_info.break_number }} of {{ break_info.total_breaks }} — Not Counted
+            </div>
 
-        {% if today_record and today_record.is_late %}
-          <div class="alert alert-warning text-sm mt-3 w-100" style="border-radius:10px;border:none;">
-            <i class="fas fa-clock me-1"></i>You checked in late today.
+            <!-- Countdown -->
+            <div class="att-break-countdown" id="breakCountdown">--:--</div>
+            <div class="att-break-countdown-label">remaining</div>
+
+            <!-- Progress bar -->
+            <div class="att-break-progress" style="width:100%;">
+              <div class="att-break-progress-fill" id="breakProgressFill"
+                   style="width:{{ break_info.progress_pct }}%;"></div>
+            </div>
+
+            <!-- Break details -->
+            <div class="att-break-info">
+              <div class="att-break-row">
+                <i class="fas fa-clock"></i>
+                Break: {{ break_info.start|time:"h:i A" }} – {{ break_info.end|time:"h:i A" }} ({{ break_info.duration_min }} min)
+              </div>
+              <div class="att-break-row">
+                <i class="fas fa-sign-in-alt"></i>
+                Checked in at {{ today_attendance.check_in|time:"h:i A" }}
+              </div>
+            </div>
+
+          {% elif post_break_info %}
+            <!-- ── RESTART WORK STATE ── -->
+            <div class="att-break-badge" style="background:rgba(99,102,241,.12);color:#818cf8;border-color:rgba(99,102,241,.28);">
+              <i class="fas fa-exclamation-circle me-1"></i>
+              Break {{ post_break_info.break_number }} ended
+              <span id="minutesSinceBreak">{{ post_break_info.minutes_since_end }}</span> min ago
+            </div>
+            <button id="restartWorkBtn"
+                    class="att-action-btn att-restart"
+                    onclick="handleRestartWork()">
+              <i class="fas fa-play att-btn-icon"></i>
+              <span>Restart Work</span>
+            </button>
+            <div class="att-checked-in-note">Break {{ post_break_info.break_number }} of 2 — click to resume timer</div>
+
+          {% else %}
+            <!-- ── WORKING / CHECK-OUT STATE ── -->
+            <button id="checkOutBtn"
+                    class="att-action-btn att-checkout"
+                    onclick="handleCheckOut()">
+              <i class="fas fa-sign-out-alt att-btn-icon"></i>
+              <span>Check Out</span>
+            </button>
+            <div class="att-checked-in-note">Checked in at {{ today_attendance.check_in|time:"h:i A" }}</div>
+          {% endif %}
+
+        {% else %}
+          <!-- ── CHECK IN STATE ── -->
+          <button id="checkInBtn" class="att-action-btn att-checkin" onclick="handleCheckIn()">
+            <i class="fas fa-fingerprint att-btn-icon"></i>
+            <span>Check In</span>
+          </button>
+          <div class="att-hint">Tap to record your arrival</div>
+          <div class="att-shift-info">
+            <div class="att-shift-row">
+              <i class="fas fa-clock"></i>
+              {% now "w" as dow %}{% if dow == "5" %}3:00 PM – 11:00 PM{% else %}2:00 PM – 11:00 PM{% endif %}
+            </div>
+            <div class="att-shift-row">
+              <i class="fas fa-coffee"></i>Breaks: 6–7:15 PM &amp; 9:40–10 PM
+            </div>
           </div>
         {% endif %}
+
       </div>
     </div>
   </div>
@@ -297,9 +378,261 @@
   </div>
 </div>
 
+<!-- ── Checkout Summary Modal ── -->
+<div class="modal fade" id="checkoutSummaryModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content border-0 shadow-lg" style="border-radius:18px;overflow:hidden;">
+      <div class="modal-header border-0 px-4 pt-4 pb-2"
+           style="background:linear-gradient(135deg,#0f172a,#1e3a8a);color:#fff;">
+        <div>
+          <h5 class="fw-bold mb-0"><i class="fas fa-clipboard-list me-2"></i>Today's Work Summary</h5>
+          <div class="text-sm opacity-75 mt-1">Review your day before checking out</div>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+
+        <!-- Status badge row -->
+        <div class="d-flex align-items-center gap-3 mb-4">
+          <div id="cs-status-badge"></div>
+          <div class="text-sm text-muted" id="cs-status-note"></div>
+        </div>
+
+        <!-- Activity Timeline -->
+        <div class="mb-4">
+          <div class="text-xs fw-bold text-muted text-uppercase mb-3 letter-spacing-1">
+            <i class="fas fa-stream me-1"></i>Day Timeline
+          </div>
+          <div id="cs-timeline" class="d-flex flex-column gap-0"></div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="row g-3 mb-3">
+          <div class="col-6 col-md-3">
+            <div class="text-center p-3 rounded-3" style="background:#f0fdf4;border:1px solid #bbf7d0;">
+              <div class="text-xs text-muted fw-semibold text-uppercase mb-1">Net Worked</div>
+              <div class="fw-bold" id="cs-net-hours" style="font-size:1.4rem;color:#065f46;">—</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="text-center p-3 rounded-3" style="background:#fefce8;border:1px solid #fde68a;">
+              <div class="text-xs text-muted fw-semibold text-uppercase mb-1">Raw Duration</div>
+              <div class="fw-bold" id="cs-raw-hours" style="font-size:1.4rem;color:#92400e;">—</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="text-center p-3 rounded-3" style="background:#fff7ed;border:1px solid #fed7aa;">
+              <div class="text-xs text-muted fw-semibold text-uppercase mb-1">Breaks</div>
+              <div class="fw-bold" id="cs-break-mins" style="font-size:1.4rem;color:#c2410c;">—</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="text-center p-3 rounded-3" style="background:#f0f9ff;border:1px solid #bae6fd;">
+              <div class="text-xs text-muted fw-semibold text-uppercase mb-1">Work Minutes</div>
+              <div class="fw-bold" id="cs-net-mins" style="font-size:1.4rem;color:#0369a1;">—</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer border-0 px-4 pb-4 pt-0 gap-2">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          <i class="fas fa-arrow-left me-1"></i>Cancel
+        </button>
+        <button type="button" class="btn btn-danger px-4" id="confirmCheckoutBtn" onclick="confirmCheckout()">
+          <i class="fas fa-sign-out-alt me-2"></i>Confirm Check Out
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
+{% if break_info %}
+<script>
+(function () {
+  var remaining   = {{ break_info.remaining_secs }};
+  var durationMin = {{ break_info.duration_min }};
+  var countdownEl = document.getElementById('breakCountdown');
+  var fillEl      = document.getElementById('breakProgressFill');
+
+  function fmt(secs) {
+    var m = Math.floor(secs / 60);
+    var s = secs % 60;
+    return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function tick() {
+    if (remaining <= 0) {
+      window.location.reload();
+      return;
+    }
+    if (countdownEl) countdownEl.textContent = fmt(remaining);
+    var totalSecs = durationMin * 60;
+    var pct = Math.min(100, Math.round((totalSecs - remaining) * 100 / totalSecs));
+    if (fillEl) fillEl.style.width = pct + '%';
+    remaining--;
+  }
+
+  tick();
+  setInterval(tick, 1000);
+})();
+</script>
+{% endif %}
+
+<script>
+// ── Restart Work ──────────────────────────────────────────────────
+function handleRestartWork() {
+  const btn = document.getElementById('restartWorkBtn');
+  if (!btn || btn.disabled) return;
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin att-btn-icon"></i><span>Resuming…</span>';
+
+  fetch('{% url "attendance:restart_work" %}', {
+    method: 'POST',
+    headers: {'X-CSRFToken': getCookie('csrftoken'), 'Content-Type': 'application/json'},
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      showToast('Work resumed after Break ' + data.break_number +
+        (data.delay_minutes > 0 ? ' (' + data.delay_minutes + ' min late)' : '') + '.', 'success');
+      setTimeout(() => window.location.reload(), 1200);
+    } else {
+      showToast(data.error || 'Could not restart.', 'danger');
+      btn.disabled = false;
+      btn.innerHTML = orig;
+    }
+  })
+  .catch(() => { btn.disabled = false; btn.innerHTML = orig; });
+}
+
+// ── Checkout — show summary popup first ──────────────────────────
+// Override the global handleCheckOut from main.js
+window.handleCheckOut = function() {
+  fetch('{% url "attendance:day_summary" %}')
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) { showToast(data.error, 'danger'); return; }
+      populateCheckoutModal(data);
+      new bootstrap.Modal(document.getElementById('checkoutSummaryModal')).show();
+    })
+    .catch(() => showToast('Could not load summary. Try again.', 'danger'));
+};
+
+function fmtMinsCheckout(m) {
+  if (!m && m !== 0) return '—';
+  const h = Math.floor(m / 60), mn = m % 60;
+  if (h === 0) return mn + 'm';
+  if (mn === 0) return h + 'h';
+  return h + 'h ' + mn + 'm';
+}
+
+function populateCheckoutModal(d) {
+  // Status badge
+  const isLate = d.is_late;
+  document.getElementById('cs-status-badge').innerHTML =
+    `<span class="badge rounded-pill px-3 py-2 ${isLate ? 'bg-warning text-dark' : 'bg-success'}">`+
+    `<i class="fas fa-${isLate?'clock':'check'} me-1"></i>${d.status}</span>`;
+  document.getElementById('cs-status-note').textContent =
+    isLate ? `Arrived ${d.late_minutes} minutes late` : 'Arrived on time';
+
+  // Stats
+  document.getElementById('cs-net-hours').textContent  = d.net_hours_display;
+  document.getElementById('cs-raw-hours').textContent  = fmtMinsCheckout(d.raw_mins);
+  document.getElementById('cs-break-mins').textContent = fmtMinsCheckout(d.break_deducted_mins);
+  document.getElementById('cs-net-mins').textContent   = d.net_mins + ' min';
+
+  // Build timeline
+  const tl = document.getElementById('cs-timeline');
+  tl.innerHTML = '';
+
+  const addEvent = (icon, color, bg, title, sub) => {
+    tl.innerHTML += `
+      <div class="d-flex gap-3 align-items-start mb-2">
+        <div class="d-flex flex-column align-items-center" style="min-width:28px;">
+          <div class="rounded-circle d-flex align-items-center justify-content-center text-white"
+               style="width:28px;height:28px;background:${color};font-size:.65rem;flex-shrink:0;">
+            <i class="fas fa-${icon}"></i>
+          </div>
+          <div style="width:2px;height:16px;background:#e2e8f0;"></div>
+        </div>
+        <div class="pb-1">
+          <div class="fw-semibold text-sm">${title}</div>
+          <div class="text-xs text-muted">${sub}</div>
+        </div>
+      </div>`;
+  };
+
+  addEvent('sign-in-alt', '#10b981', '#f0fdf4',
+    'Checked In at ' + d.check_in,
+    isLate ? d.late_minutes + ' min late (shift starts ' + (d.is_friday ? '3:00 PM' : '2:00 PM') + ')' : 'On time'
+  );
+
+  d.breaks.forEach(b => {
+    addEvent('mug-hot', '#f59e0b', '#fefce8',
+      `Break ${b.break_number} — ${b.scheduled_start} to ${b.scheduled_end}`,
+      `Scheduled ${b.duration_min} min · Not counted in work hours`
+    );
+    if (b.restarted) {
+      const delay = b.delay_minutes > 0 ? ` (${b.delay_minutes} min after break ended)` : ' (on time)';
+      addEvent('play', '#6366f1', '#f0f0ff',
+        `Resumed Work at ${b.resumed_at}`,
+        `Break ${b.break_number} restart${delay}`
+      );
+    } else {
+      addEvent('question-circle', '#94a3b8', '#f8fafc',
+        `Break ${b.break_number} — No manual restart recorded`,
+        'Work resumed automatically or break not reached'
+      );
+    }
+  });
+
+  addEvent('sign-out-alt', '#ef4444', '#fef2f2',
+    'Check Out at ' + d.tentative_checkout,
+    'Net worked: ' + d.net_hours_display + ' (' + d.net_mins + ' min)'
+  );
+}
+
+function confirmCheckout() {
+  const btn = document.getElementById('confirmCheckoutBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Checking out…';
+
+  fetch('{% url "attendance:check_out" %}', {
+    method: 'POST',
+    headers: {'X-CSRFToken': getCookie('csrftoken'), 'Content-Type': 'application/json'},
+  })
+  .then(r => r.json())
+  .then(data => {
+    bootstrap.Modal.getInstance(document.getElementById('checkoutSummaryModal')).hide();
+    if (data.success) {
+      showToast('Checked out. You worked ' + data.work_hours + 'h today.', 'success');
+      setTimeout(() => window.location.reload(), 1400);
+    } else {
+      showToast(data.message || 'Checkout failed.', 'danger');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-sign-out-alt me-2"></i>Confirm Check Out';
+    }
+  })
+  .catch(() => {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-sign-out-alt me-2"></i>Confirm Check Out';
+  });
+}
+
+// Increment "minutes since break" counter while page is open
+(function() {
+  const el = document.getElementById('minutesSinceBreak');
+  if (!el) return;
+  let mins = parseInt(el.textContent, 10);
+  setInterval(() => { mins++; el.textContent = mins; }, 60000);
+})();
+</script>
+
 <script>
 function showAttDetail(btn) {
   const d = btn.dataset;
