@@ -85,6 +85,107 @@
   </a>
 </div>
 
+<!-- Live Attendance Deductions (no payslip needed) -->
+<div class="card mb-4 fade-in-up delay-1">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <div>
+      <i class="fas fa-bolt text-warning me-2"></i>Live Attendance Deductions
+      <span class="text-muted text-xs ms-1">— auto-calculated, no payslip required</span>
+    </div>
+    <span class="badge bg-danger-subtle text-danger">
+      Total: PKR {{ live_total|floatformat:2 }}
+    </span>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table mb-0 align-middle">
+        <thead>
+          <tr>
+            <th>Employee</th>
+            <th class="text-center">Late</th>
+            <th class="text-center">Early-out</th>
+            <th class="text-center">Break overstay</th>
+            <th class="text-center">Full days</th>
+            <th class="text-end">Total Deduction</th>
+            <th class="text-center">Breakdown</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in live_deductions %}
+          <tr>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                {% if row.employee.profile_picture %}
+                  <img src="{{ row.employee.profile_picture.url }}" class="rounded-circle" width="30" height="30" style="object-fit:cover;" alt="">
+                {% else %}
+                  <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold"
+                       style="width:30px;height:30px;font-size:0.65rem;">
+                    {{ row.employee.first_name|first|upper }}{{ row.employee.last_name|first|upper }}
+                  </div>
+                {% endif %}
+                <div>
+                  <div class="fw-semibold text-sm">{{ row.employee.get_full_name|default:row.employee.username }}</div>
+                  <div class="text-xs text-muted">{{ row.employee.employee_id }}</div>
+                </div>
+              </div>
+            </td>
+            <td class="text-center text-sm">
+              {% if row.summary.total_late_minutes %}{{ row.summary.total_late_minutes }} min{% else %}<span class="text-muted">—</span>{% endif %}
+            </td>
+            <td class="text-center text-sm">
+              {% if row.summary.total_early_minutes %}{{ row.summary.total_early_minutes }} min{% else %}<span class="text-muted">—</span>{% endif %}
+            </td>
+            <td class="text-center text-sm">
+              {% if row.summary.total_break_minutes %}{{ row.summary.total_break_minutes }} min{% else %}<span class="text-muted">—</span>{% endif %}
+            </td>
+            <td class="text-center text-sm">
+              {% for it in row.summary.items %}{% if it.full_day %}<span class="badge bg-secondary-subtle text-secondary text-xs">{{ it.date|date:"d M" }}</span> {% endif %}{% empty %}<span class="text-muted">—</span>{% endfor %}
+            </td>
+            <td class="text-end text-sm fw-bold text-danger">PKR {{ row.summary.total|floatformat:2 }}</td>
+            <td class="text-center">
+              <button class="btn btn-icon btn-sm btn-outline-secondary" type="button"
+                      data-bs-toggle="collapse" data-bs-target="#liveDed{{ row.employee.pk }}" title="View breakdown">
+                <i class="fas fa-list-ul"></i>
+              </button>
+            </td>
+          </tr>
+          <tr class="collapse" id="liveDed{{ row.employee.pk }}">
+            <td colspan="7" class="bg-light">
+              <div class="p-2">
+                <table class="table table-sm mb-0">
+                  <thead>
+                    <tr class="text-xs text-muted">
+                      <th>Date</th><th>Reason</th><th>Detail</th><th class="text-end">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for it in row.summary.items %}
+                    <tr class="text-sm">
+                      <td>{{ it.date|date:"d M Y" }}</td>
+                      <td>{{ it.reason|capfirst }}</td>
+                      <td class="text-muted">{{ it.description|default:"—" }}</td>
+                      <td class="text-end text-danger">PKR {{ it.amount|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="7" class="text-center py-4 text-muted">
+              <i class="fas fa-check-circle fa-2x mb-2 d-block opacity-25"></i>
+              No attendance deductions for the selected period.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <!-- Payslip Table -->
 <div class="card fade-in-up delay-1">
   <div class="card-header d-flex justify-content-between align-items-center">

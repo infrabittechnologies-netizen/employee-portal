@@ -225,12 +225,36 @@ def salary_report_view(request):
         payslips__year=year,
     )
 
+    # Employees expected to mark attendance (used for the live-deduction table
+    # and the Add Deduction / Add Bonus dropdowns).
+    employees = (
+        User.objects.filter(is_active=True)
+        .exclude(role='admin')
+        .exclude(is_superuser=True)
+        .order_by('first_name', 'username')
+    )
+
+    # Live attendance-based deductions for the selected month — shown WITHOUT
+    # having to generate a payslip. Each row carries a full breakdown.
+    from .deductions import month_deduction_summary
+
+    live_deductions = []
+    live_total = Decimal('0.00')
+    for emp in employees:
+        summary = month_deduction_summary(emp, year, month)
+        if summary['total'] > 0:
+            live_deductions.append({'employee': emp, 'summary': summary})
+            live_total += summary['total']
+
     month_choices = list(range(1, 13))
     year_choices = list(range(2020, 2031))
 
     context = {
         'payslips': payslips,
         'employees_with_no_payslip': employees_with_no_payslip,
+        'employees': employees,
+        'live_deductions': live_deductions,
+        'live_total': live_total,
         'selected_month': month,
         'selected_year': year,
         'month_choices': month_choices,
