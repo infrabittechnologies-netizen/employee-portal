@@ -86,12 +86,17 @@
   <!-- Department Bar Chart -->
   <div class="col-12 col-lg-7">
     <div class="card h-100 fade-in-up delay-2">
-      <div class="card-header">
-        <i class="fas fa-chart-bar text-primary me-2"></i>Department-wise Employee Count
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <div><i class="fas fa-clock text-primary me-2"></i>Today's Check-in Times</div>
+        <span class="badge bg-light text-muted text-xs">{{ today|date:"D, M j" }}</span>
       </div>
       <div class="card-body p-4">
         <div style="position:relative; height:280px;">
-          <canvas id="deptChart"></canvas>
+          <canvas id="checkinChart"></canvas>
+        </div>
+        <div id="checkinEmpty" class="text-center text-muted py-5 d-none">
+          <i class="fas fa-user-clock fa-2x mb-2 d-block opacity-25"></i>
+          No check-ins yet today.
         </div>
       </div>
     </div>
@@ -297,44 +302,67 @@
 
 {% block extra_js %}
 <script>
-// Department Bar Chart
-const deptCtx = document.getElementById('deptChart');
-if (deptCtx) {
-  const deptLabels = [{% for d in dept_data %}'{{ d.name|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}];
-  const deptCounts = [{% for d in dept_data %}{{ d.count }}{% if not forloop.last %},{% endif %}{% endfor %}];
-  new Chart(deptCtx, {
-    type: 'bar',
-    data: {
-      labels: deptLabels,
-      datasets: [{
-        label: 'Employees',
-        data: deptCounts,
-        backgroundColor: [
-          'rgba(79,70,229,.8)','rgba(16,185,129,.8)','rgba(245,158,11,.8)',
-          'rgba(239,68,68,.8)','rgba(59,130,246,.8)','rgba(168,85,247,.8)',
-          'rgba(236,72,153,.8)','rgba(20,184,166,.8)',
-        ],
-        borderRadius: 6,
-        borderSkipped: false,
-        maxBarThickness: 48,
-        categoryPercentage: 0.6,
-        barPercentage: 0.8,
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        y: {
-          beginAtZero: true,
-          ticks: { stepSize: 1, precision: 0 },
-          grid: { color: '#f3f4f6' }
+// Today's Check-in Times Chart (a fresh graph every day)
+const checkinCtx = document.getElementById('checkinChart');
+if (checkinCtx) {
+  const ciNames = [{% for c in checkin_data %}'{{ c.name|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}];
+  const ciHours = [{% for c in checkin_data %}{{ c.hour }}{% if not forloop.last %},{% endif %}{% endfor %}];
+  const ciTimes = [{% for c in checkin_data %}'{{ c.time|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}];
+  const ciLate  = [{% for c in checkin_data %}{{ c.is_late|yesno:"true,false" }}{% if not forloop.last %},{% endif %}{% endfor %}];
+
+  // Format a decimal hour (e.g. 14.5) back into "2:30 PM".
+  function fmtHour(h) {
+    const hr = Math.floor(h);
+    const mn = Math.round((h - hr) * 60);
+    const ampm = hr >= 12 ? 'PM' : 'AM';
+    let h12 = hr % 12; if (h12 === 0) h12 = 12;
+    return h12 + ':' + String(mn).padStart(2, '0') + ' ' + ampm;
+  }
+
+  if (ciHours.length === 0) {
+    checkinCtx.parentElement.classList.add('d-none');
+    document.getElementById('checkinEmpty').classList.remove('d-none');
+  } else {
+    const minH = Math.floor(Math.min(...ciHours) - 0.5);
+    const maxH = Math.ceil(Math.max(...ciHours) + 0.5);
+    new Chart(checkinCtx, {
+      type: 'bar',
+      data: {
+        labels: ciNames,
+        datasets: [{
+          label: 'Check-in time',
+          data: ciHours,
+          backgroundColor: ciLate.map(l => l ? 'rgba(239,68,68,.8)' : 'rgba(16,185,129,.8)'),
+          borderRadius: 6,
+          borderSkipped: false,
+          maxBarThickness: 48,
+          categoryPercentage: 0.6,
+          barPercentage: 0.8,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => '  ' + ciTimes[ctx.dataIndex] + (ciLate[ctx.dataIndex] ? '  (Late)' : '  (On time)')
+            }
+          }
         },
-        x: { grid: { display: false } }
+        scales: {
+          y: {
+            min: minH,
+            max: maxH,
+            ticks: { stepSize: 0.5, callback: (v) => fmtHour(v) },
+            grid: { color: '#f3f4f6' }
+          },
+          x: { grid: { display: false } }
+        }
       }
-    }
-  });
+    });
+  }
 }
 
 // Attendance Donut Chart

@@ -115,6 +115,25 @@ def admin_dashboard_view(request):
     pending_leaves_count = LeaveApplication.objects.filter(status='pending').count()
     departments = Department.objects.all()
     dept_data = [{'name': d.name, 'count': d.employees.filter(is_active=True).count()} for d in departments]
+
+    # Today's check-in stats — a fresh graph every day. One bar per employee
+    # who has checked in today, plotted by their check-in time (decimal hour),
+    # coloured green (on time) or red (late).
+    checkin_today = (
+        Attendance.objects.filter(date=today, check_in__isnull=False)
+        .select_related('employee')
+        .order_by('check_in')
+    )
+    checkin_data = []
+    for a in checkin_today:
+        lt = timezone.localtime(a.check_in)
+        checkin_data.append({
+            'name': a.employee.get_full_name() or a.employee.username,
+            'time': lt.strftime('%I:%M %p').lstrip('0'),
+            'hour': round(lt.hour + lt.minute / 60.0, 4),
+            'is_late': bool(a.is_late),
+        })
+
     recent_employees = CustomUser.objects.filter(role__in=['employee', 'manager']).order_by('-date_joined')[:5]
     todays_attendance = Attendance.objects.filter(date=today).select_related('employee').order_by('-check_in')[:10]
     recent_leaves = LeaveApplication.objects.filter(
@@ -132,6 +151,7 @@ def admin_dashboard_view(request):
         'present_today': present_today,
         'pending_leaves_count': pending_leaves_count,
         'dept_data': dept_data,
+        'checkin_data': checkin_data,
         'recent_employees': recent_employees,
         'todays_attendance': todays_attendance,
         'recent_leaves': recent_leaves,
