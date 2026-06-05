@@ -356,3 +356,42 @@ def employee_deactivate_view(request, pk):
         'employee': employee,
     }
     return render(request, 'accounts/employee_confirm_deactivate.html', context)
+
+
+@login_required
+@admin_required
+def employee_delete_view(request, pk):
+    """
+    Permanently delete an employee and ALL of their related data
+    (attendance, leaves, payslips, deductions, bonuses, performance
+    reviews, KPIs, notifications) via database cascade.
+
+    Guard rails:
+      - You cannot delete your own account.
+      - Superuser accounts are protected from deletion.
+      - Only acts on POST (the UI shows a confirmation modal first).
+    """
+    employee = get_object_or_404(CustomUser, pk=pk)
+
+    if employee.pk == request.user.pk:
+        messages.error(request, 'You cannot delete your own account.')
+        return redirect('accounts:employee_list')
+
+    if employee.is_superuser:
+        messages.error(request, 'Superuser accounts cannot be deleted.')
+        return redirect('accounts:employee_list')
+
+    if request.method == 'POST':
+        display_name = employee.get_full_name() or employee.username
+        employee_code = employee.employee_id or '—'
+        employee.delete()  # cascades to all owned records
+        messages.success(
+            request,
+            f'Employee {display_name} ({employee_code}) and all related data '
+            f'have been permanently deleted.'
+        )
+        return redirect('accounts:employee_list')
+
+    # A direct GET falls back to the employee detail page; the modal handles
+    # confirmation in the normal flow.
+    return redirect('accounts:employee_detail', pk=employee.pk)

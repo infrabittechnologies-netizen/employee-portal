@@ -81,7 +81,7 @@
 <!-- Table -->
 <div class="card fade-in-up delay-1">
   <div class="card-body p-0">
-    <div class="table-responsive">
+    <div class="table-responsive overflow-visible">
       <table class="table mb-0">
         <thead>
           <tr>
@@ -132,16 +132,38 @@
                 <span class="badge bg-secondary rounded-pill px-2 py-1 text-xs"><i class="fas fa-circle me-1" style="font-size:0.4rem;"></i>Inactive</span>
               {% endif %}
             </td>
-            <td>
-              <div class="d-flex gap-1 justify-content-center">
-                <a href="{% url 'accounts:employee_detail' emp.pk %}" class="btn btn-icon btn-sm btn-outline-primary" title="View Profile">
-                  <i class="fas fa-eye"></i>
-                </a>
-                {% if request.user.is_admin %}
-                <a href="{% url 'accounts:employee_edit' emp.pk %}" class="btn btn-icon btn-sm btn-outline-secondary" title="Edit">
-                  <i class="fas fa-edit"></i>
-                </a>
-                {% endif %}
+            <td class="text-center">
+              <div class="dropdown">
+                <button class="btn btn-icon btn-sm btn-outline-secondary" type="button"
+                        data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false" title="Actions">
+                  <i class="fas fa-ellipsis-vertical"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow border-0 py-1">
+                  <li>
+                    <a class="dropdown-item d-flex align-items-center gap-2" href="{% url 'accounts:employee_detail' emp.pk %}">
+                      <i class="fas fa-eye text-primary"></i>View Profile
+                    </a>
+                  </li>
+                  {% if request.user.is_admin %}
+                  <li>
+                    <a class="dropdown-item d-flex align-items-center gap-2" href="{% url 'accounts:employee_edit' emp.pk %}">
+                      <i class="fas fa-pen text-secondary"></i>Edit
+                    </a>
+                  </li>
+                  {% if emp.pk != request.user.pk and not emp.is_superuser %}
+                  <li><hr class="dropdown-divider my-1"></li>
+                  <li>
+                    <button type="button" class="dropdown-item d-flex align-items-center gap-2 text-danger"
+                            data-bs-toggle="modal" data-bs-target="#deleteEmployeeModal"
+                            data-emp-name="{{ emp.get_full_name|default:emp.username }}"
+                            data-emp-id="{{ emp.employee_id|default:'—' }}"
+                            data-emp-url="{% url 'accounts:employee_delete' emp.pk %}">
+                      <i class="fas fa-trash-can"></i>Delete
+                    </button>
+                  </li>
+                  {% endif %}
+                  {% endif %}
+                </ul>
               </div>
             </td>
           </tr>
@@ -159,4 +181,58 @@
   </div>
 </div>
 
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteEmployeeModal" tabindex="-1" aria-labelledby="deleteEmployeeModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-header bg-danger text-white border-0">
+        <h5 class="modal-title" id="deleteEmployeeModalLabel">
+          <i class="fas fa-triangle-exclamation me-2"></i>Delete Employee
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-4">
+        <p class="mb-3">
+          You are about to permanently delete
+          <strong id="deleteEmpName">this employee</strong>
+          <span class="text-muted" id="deleteEmpId"></span>.
+        </p>
+        <div class="alert alert-danger d-flex align-items-start gap-2 mb-0 rounded-3">
+          <i class="fas fa-circle-exclamation mt-1"></i>
+          <div class="text-sm">
+            This action <strong>cannot be undone</strong>. All of this employee's data —
+            attendance, leaves, payslips, deductions, bonuses, performance reviews,
+            KPIs and notifications — will be permanently removed everywhere.
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer border-0 pt-0 px-4 pb-4">
+        <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cancel</button>
+        <form id="deleteEmployeeForm" method="post" action="" class="d-inline m-0">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-danger px-4">
+            <i class="fas fa-trash-can me-1"></i>Delete Permanently
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  (function () {
+    const deleteModal = document.getElementById('deleteEmployeeModal');
+    if (!deleteModal) return;
+    deleteModal.addEventListener('show.bs.modal', function (event) {
+      const trigger = event.relatedTarget;
+      if (!trigger) return;
+      deleteModal.querySelector('#deleteEmpName').textContent = trigger.getAttribute('data-emp-name') || 'this employee';
+      deleteModal.querySelector('#deleteEmpId').textContent = '(' + (trigger.getAttribute('data-emp-id') || '—') + ')';
+      deleteModal.querySelector('#deleteEmployeeForm').setAttribute('action', trigger.getAttribute('data-emp-url') || '');
+    });
+  })();
+</script>
 {% endblock %}
