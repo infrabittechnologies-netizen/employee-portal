@@ -65,6 +65,11 @@
             <div class="col-12 col-sm-6">
               <label class="form-label fw-semibold">Designation</label>
               {{ form.designation }}
+              <datalist id="designation-options">
+                <option value="Sales agent"></option>
+                <option value="Team lead"></option>
+                <option value="Transfer agent"></option>
+              </datalist>
               {% if form.designation.errors %}<div class="invalid-feedback d-block">{{ form.designation.errors.0 }}</div>{% endif %}
             </div>
             <div class="col-12 col-sm-6">
