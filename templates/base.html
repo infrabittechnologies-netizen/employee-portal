@@ -261,6 +261,42 @@
   </footer>
 </main>
 
+{% if user.is_authenticated and not user.is_admin %}
+<!-- Auto-logout: employees are signed out 10 min after shift end (11:10 PM PKT).
+     This open-tab timer is a courtesy; the server middleware enforces it too. -->
+<form id="autoLogoutForm" method="post" action="{% url 'accounts:logout' %}" class="d-none">{% csrf_token %}</form>
+<script>
+  (function () {
+    var CUTOFF_H = 23, CUTOFF_M = 10;   // 11:10 PM PKT
+    var done = false;
+    function pktHM() {
+      var offset = (typeof window.__CLIENT_OFFSET_MS === 'number') ? window.__CLIENT_OFFSET_MS : 0;
+      var parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Karachi', hour12: false, hour: '2-digit', minute: '2-digit'
+      }).formatToParts(new Date(Date.now() + offset));
+      var h = 0, m = 0;
+      parts.forEach(function (p) {
+        if (p.type === 'hour') h = parseInt(p.value, 10);
+        if (p.type === 'minute') m = parseInt(p.value, 10);
+      });
+      if (h === 24) h = 0;   // some engines emit 24 at midnight
+      return { h: h, m: m };
+    }
+    function check() {
+      if (done) return;
+      var t = pktHM();
+      // Logout window: 11:10 PM up to (but not past) midnight.
+      if (t.h === CUTOFF_H && t.m >= CUTOFF_M) {
+        done = true;
+        document.getElementById('autoLogoutForm').submit();
+      }
+    }
+    setInterval(check, 30000);
+    check();
+  })();
+</script>
+{% endif %}
+
 <!-- Bootstrap 5 JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <!-- Chart.js -->

@@ -33,6 +33,14 @@ BREAKS = [
 
 TOTAL_BREAK_MINUTES = 95   # 75 + 20
 
+# Employees may check in at most this many minutes before their shift starts
+# (e.g. a 2:00 PM shift opens check-in at 1:50 PM).
+EARLY_CHECKIN_MINUTES = 10
+
+# How long after the shift ends (SHIFT_END) before employees are automatically
+# signed out of the portal (e.g. 11:00 PM shift end → auto logout at 11:10 PM).
+AUTO_LOGOUT_AFTER_MINUTES = 10
+
 SHIFT_NAMES = {
     0: "Regular Shift",
     1: "Regular Shift",
@@ -52,6 +60,54 @@ def get_shift_start(d) -> datetime.time | None:
     """Return the shift start time for a date/weekday, or None on weekends."""
     wd = d if isinstance(d, int) else d.weekday()
     return SHIFT_START.get(wd)
+
+
+def earliest_checkin_time(d) -> datetime.time | None:
+    """
+    Earliest allowed check-in time for a date/weekday: shift start minus
+    EARLY_CHECKIN_MINUTES. Returns None on weekends (no shift).
+    """
+    start = get_shift_start(d)
+    if not start:
+        return None
+    anchor = datetime.date(2000, 1, 1)
+    opened = datetime.datetime.combine(anchor, start) - datetime.timedelta(
+        minutes=EARLY_CHECKIN_MINUTES
+    )
+    return opened.time()
+
+
+def is_too_early_checkin(check_in_aware) -> bool:
+    """
+    Return True if the timezone-aware check-in is earlier than the early-window
+    opening (shift start − EARLY_CHECKIN_MINUTES) for that day, in PKT.
+    """
+    from django.utils import timezone as dj_tz
+    ci_local = dj_tz.localtime(check_in_aware)
+    earliest = earliest_checkin_time(ci_local.weekday())
+    return bool(earliest and ci_local.time() < earliest)
+
+
+def auto_logout_time() -> datetime.time:
+    """The PKT time at/after which employees are auto-logged-out
+    (SHIFT_END + AUTO_LOGOUT_AFTER_MINUTES)."""
+    anchor = datetime.date(2000, 1, 1)
+    cutoff = datetime.datetime.combine(anchor, SHIFT_END) + datetime.timedelta(
+        minutes=AUTO_LOGOUT_AFTER_MINUTES
+    )
+    return cutoff.time()
+
+
+def is_past_auto_logout(now_aware=None) -> bool:
+    """
+    Return True when the current PKT time is inside the after-shift logout
+    window: from (SHIFT_END + AUTO_LOGOUT_AFTER_MINUTES) until midnight.
+    """
+    from django.utils import timezone as dj_tz
+    if now_aware is None:
+        now_aware = dj_tz.now()
+    local_t = dj_tz.localtime(now_aware).time()
+    return local_t >= auto_logout_time()
 
 
 def is_late_checkin(check_in_aware) -> bool:

@@ -14,7 +14,8 @@ from accounts.decorators import admin_required, manager_required
 from .models import Attendance, AttendanceBreak
 from .schedule import (
     is_weekend, get_shift_start, is_late_checkin, net_work_hours,
-    get_break_status, get_post_break_status, SHIFT_START, SHIFT_END, BREAKS,
+    get_break_status, get_post_break_status, is_too_early_checkin,
+    earliest_checkin_time, SHIFT_START, SHIFT_END, BREAKS, EARLY_CHECKIN_MINUTES,
 )
 
 User = get_user_model()
@@ -59,6 +60,23 @@ def check_in_view(request):
         day_name = today.strftime('%A')
         return JsonResponse(
             {'success': False, 'error': f'{day_name} is a holiday. Enjoy your day off!'},
+            status=400,
+        )
+
+    # ── Block check-in that is too early ───────────────────────────────────
+    # Check-in opens EARLY_CHECKIN_MINUTES before the shift start (e.g. a
+    # 2:00 PM shift opens at 1:50 PM). Earlier attempts are rejected.
+    if is_too_early_checkin(now):
+        earliest = earliest_checkin_time(today)
+        return JsonResponse(
+            {
+                'success': False,
+                'error': (
+                    f'Check-in opens at {earliest.strftime("%I:%M %p")} '
+                    f'({EARLY_CHECKIN_MINUTES} minutes before your shift). '
+                    'Please try again then.'
+                ),
+            },
             status=400,
         )
 

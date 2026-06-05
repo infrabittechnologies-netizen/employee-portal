@@ -43,6 +43,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'employee_portal.middleware.DesktopOnlyMiddleware',
+    'employee_portal.middleware.EmployeeAutoLogoutMiddleware',
 ]
 
 ROOT_URLCONF = 'employee_portal.urls'
