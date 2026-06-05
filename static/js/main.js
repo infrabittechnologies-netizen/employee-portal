@@ -10,15 +10,25 @@ function getCookie(name) {
 const csrfToken = getCookie('csrftoken');
 
 // ===== Live Clock =====
+// Always shows Pakistan Standard Time from the server, NOT the device clock.
+// We apply the server/device offset (set in base.html) so a wrong laptop clock
+// or a different timezone still shows the correct PKT time.
+const PKT_TZ = 'Asia/Karachi';
+
+function serverNow() {
+    const offset = (typeof window.__CLIENT_OFFSET_MS === 'number') ? window.__CLIENT_OFFSET_MS : 0;
+    return new Date(Date.now() + offset);
+}
+
 function updateClock() {
-    const now = new Date();
+    const now = serverNow();
     const timeEl = document.getElementById('liveClock');
     const dateEl = document.getElementById('liveDate');
     if (timeEl) {
-        timeEl.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        timeEl.textContent = now.toLocaleTimeString('en-US', { timeZone: PKT_TZ, hour: '2-digit', minute: '2-digit', second: '2-digit' });
     }
     if (dateEl) {
-        dateEl.textContent = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        dateEl.textContent = now.toLocaleDateString('en-US', { timeZone: PKT_TZ, weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     }
 }
 setInterval(updateClock, 1000);
