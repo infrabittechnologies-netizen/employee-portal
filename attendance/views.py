@@ -632,6 +632,16 @@ def manage_attendance_view(request, pk=None):
             messages.error(request, 'Cannot set a check-out time without a check-in time.')
             return redirect(request.path)
 
+        # A "worked" status must have a check-in time, otherwise the record is
+        # meaningless. Absent / leave / holiday legitimately have no times.
+        if status in ('present', 'late', 'half_day') and not check_in_dt:
+            messages.error(
+                request,
+                'A check-in time is required for Present, Late or Half Day. '
+                'For a no-show, choose Absent or On Leave instead.',
+            )
+            return redirect(request.path)
+
         if check_in_dt and check_out_dt and check_out_dt <= check_in_dt:
             messages.error(request, 'Check-out time must be after the check-in time.')
             return redirect(request.path)
