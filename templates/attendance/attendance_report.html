@@ -93,8 +93,13 @@
 <div class="card fade-in-up delay-2">
   <div class="card-header d-flex justify-content-between align-items-center">
     <div><i class="fas fa-table text-secondary me-2"></i>Attendance Records</div>
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 align-items-center">
       <span class="badge bg-light text-muted">{{ total_records }} records</span>
+      {% if request.user.is_admin %}
+      <a href="{% url 'attendance:manage_attendance' %}" class="btn btn-sm btn-primary no-print">
+        <i class="fas fa-user-pen me-1"></i>Correct Attendance
+      </a>
+      {% endif %}
       <a href="?{{ request.GET.urlencode }}&export=csv" class="btn btn-sm btn-outline-success no-print">
         <i class="fas fa-download me-1"></i>Export CSV
       </a>
@@ -114,7 +119,7 @@
             <th>Check Out</th>
             <th>Hours</th>
             <th>Late</th>
-            <th class="text-center">Detail</th>
+            <th class="text-center">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -143,24 +148,32 @@
               {% endif %}
             </td>
             <td class="text-center">
-              <button class="btn btn-icon btn-sm btn-outline-primary" title="View Detail"
-                onclick="showAttDetail(this)"
-                data-date="{{ att.date|date:'M j, Y' }}"
-                data-day="{{ att.date|date:'l' }}"
-                data-status="{{ att.get_status_display }}"
-                data-status-class="{{ att.status }}"
-                data-is-late="{{ att.is_late|yesno:'true,false' }}"
-                data-employee="{{ att.employee.get_full_name|default:att.employee.username }}"
-                data-employee-id="{{ att.employee.employee_id|default:'N/A' }}"
-                data-department="{{ att.employee.department|default:'—' }}"
-                data-checkin="{% if att.check_in %}{{ att.check_in|time:'h:i A' }}{% endif %}"
-                data-checkout="{% if att.check_out %}{{ att.check_out|time:'h:i A' }}{% endif %}"
-                data-checkin-raw="{% if att.check_in %}{{ att.check_in|time:'H:i' }}{% endif %}"
-                data-checkout-raw="{% if att.check_out %}{{ att.check_out|time:'H:i' }}{% endif %}"
-                data-hours="{{ att.work_hours|default:'0' }}"
-                data-notes="{{ att.notes|default:'' }}">
-                <i class="fas fa-eye"></i>
-              </button>
+              <div class="d-inline-flex gap-1">
+                <button class="btn btn-icon btn-sm btn-outline-primary" title="View Detail"
+                  onclick="showAttDetail(this)"
+                  data-date="{{ att.date|date:'M j, Y' }}"
+                  data-day="{{ att.date|date:'l' }}"
+                  data-status="{{ att.get_status_display }}"
+                  data-status-class="{{ att.status }}"
+                  data-is-late="{{ att.is_late|yesno:'true,false' }}"
+                  data-employee="{{ att.employee.get_full_name|default:att.employee.username }}"
+                  data-employee-id="{{ att.employee.employee_id|default:'N/A' }}"
+                  data-department="{{ att.employee.department|default:'—' }}"
+                  data-checkin="{% if att.check_in %}{{ att.check_in|time:'h:i A' }}{% endif %}"
+                  data-checkout="{% if att.check_out %}{{ att.check_out|time:'h:i A' }}{% endif %}"
+                  data-checkin-raw="{% if att.check_in %}{{ att.check_in|time:'H:i' }}{% endif %}"
+                  data-checkout-raw="{% if att.check_out %}{{ att.check_out|time:'H:i' }}{% endif %}"
+                  data-hours="{{ att.work_hours|default:'0' }}"
+                  data-notes="{{ att.notes|default:'' }}">
+                  <i class="fas fa-eye"></i>
+                </button>
+                {% if request.user.is_admin %}
+                <a class="btn btn-icon btn-sm btn-outline-secondary" title="Edit / Correct"
+                   href="{% url 'attendance:manage_attendance_edit' att.pk %}">
+                  <i class="fas fa-pen"></i>
+                </a>
+                {% endif %}
+              </div>
             </td>
           </tr>
           {% empty %}

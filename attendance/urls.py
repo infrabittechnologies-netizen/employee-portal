@@ -16,6 +16,10 @@ urlpatterns = [
     path('report/', views.attendance_report_view, name='attendance_report'),
     path('mark-absent/', views.mark_absent_view, name='mark_absent'),
 
+    # Admin attendance correction (add / edit)
+    path('manage/', views.manage_attendance_view, name='manage_attendance'),
+    path('manage/<int:pk>/', views.manage_attendance_view, name='manage_attendance_edit'),
+
     # Detail (must come after named paths to avoid capturing them)
     path('<int:pk>/', views.attendance_detail_view, name='attendance_detail'),
 ]

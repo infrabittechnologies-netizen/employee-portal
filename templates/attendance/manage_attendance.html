@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if record %}Edit Attendance{% else %}Correct Attendance{% endif %}{% endblock %}
+{% block page_title %}{% if record %}Edit Attendance{% else %}Correct Attendance{% endif %}{% endblock %}
+{% block nav_att_report %}active{% endblock %}
+
+{% block breadcrumb %}
+  <li class="breadcrumb-item"><a href="{% url 'attendance:attendance_report' %}" class="text-decoration-none text-muted">Att. Report</a></li>
+  <li class="breadcrumb-item active">{% if record %}Edit{% else %}Correct{% endif %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-xl-8">
+
+    <!-- Info banner -->
+    <div class="alert alert-info d-flex align-items-start gap-2 fade-in-up rounded-3">
+      <i class="fas fa-circle-info mt-1"></i>
+      <div class="text-sm">
+        Use this form to correct an attendance record when an employee forgot to check in or out,
+        or when a status needs to be adjusted. For <strong>Absent</strong>, <strong>On Leave</strong>
+        and <strong>Holiday</strong>, the check-in / check-out times are ignored.
+      </div>
+    </div>
+
+    <div class="card fade-in-up delay-1">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <div>
+          <i class="fas fa-user-pen text-primary me-2"></i>
+          {% if record %}Edit Attendance Record{% else %}Add / Correct Attendance{% endif %}
+        </div>
+      </div>
+      <div class="card-body p-4">
+        <form method="post" action="{% if record %}{% url 'attendance:manage_attendance_edit' record.pk %}{% else %}{% url 'attendance:manage_attendance' %}{% endif %}">
+          {% csrf_token %}
+          <div class="row g-3">
+
+            <!-- Employee -->
+            <div class="col-12 col-md-6">
+              <label class="form-label text-sm fw-medium">Employee <span class="text-danger">*</span></label>
+              <select name="employee" class="form-select" required {% if record %}disabled{% endif %}>
+                <option value="">— Select employee —</option>
+                {% for emp in employees %}
+                <option value="{{ emp.pk }}" {% if prefill_employee == emp.pk|stringformat:"s" %}selected{% endif %}>
+                  {{ emp.get_full_name|default:emp.username }}{% if emp.employee_id %} ({{ emp.employee_id }}){% endif %}
+                </option>
+                {% endfor %}
+              </select>
+              {% if record %}
+              <!-- disabled selects don't submit, so keep value in a hidden field while editing -->
+              <input type="hidden" name="employee" value="{{ prefill_employee }}">
+              <div class="form-text">Employee cannot be changed when editing. Cancel and create a new record instead.</div>
+              {% endif %}
+            </div>
+
+            <!-- Date -->
+            <div class="col-12 col-md-6">
+              <label class="form-label text-sm fw-medium">Date <span class="text-danger">*</span></label>
+              <input type="date" name="date" class="form-control" value="{{ prefill_date }}"
+                     max="{{ today|date:'Y-m-d' }}" required {% if record %}readonly{% endif %}>
+            </div>
+
+            <!-- Status -->
+            <div class="col-12 col-md-6">
+              <label class="form-label text-sm fw-medium">Status <span class="text-danger">*</span></label>
+              <select name="status" id="status-select" class="form-select" required>
+                {% for value, label in status_choices %}
+                <option value="{{ value }}" {% if prefill_status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <!-- Times -->
+            <div class="col-6 col-md-3">
+              <label class="form-label text-sm fw-medium">Check In</label>
+              <input type="time" name="check_in" id="check-in-input" class="form-control" value="{{ prefill_check_in }}">
+              <div class="form-text">24-hour time</div>
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label text-sm fw-medium">Check Out</label>
+              <input type="time" name="check_out" id="check-out-input" class="form-control" value="{{ prefill_check_out }}">
+              <div class="form-text">24-hour time</div>
+            </div>
+
+            <!-- Notes -->
+            <div class="col-12">
+              <label class="form-label text-sm fw-medium">Notes</label>
+              <textarea name="notes" class="form-control" rows="3"
+                        placeholder="e.g. Employee forgot to check out — corrected by admin.">{{ prefill_notes }}</textarea>
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-end gap-2 mt-4">
+            <a href="{% url 'attendance:attendance_report' %}" class="btn btn-outline-secondary px-4">Cancel</a>
+            <button type="submit" class="btn btn-primary px-4">
+              <i class="fas fa-save me-1"></i>{% if record %}Save Changes{% else %}Save Record{% endif %}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  (function () {
+    const statusSelect = document.getElementById('status-select');
+    const checkIn = document.getElementById('check-in-input');
+    const checkOut = document.getElementById('check-out-input');
+    const noTime = ['absent', 'leave', 'holiday'];
+
+    function syncTimeFields() {
+      const disabled = noTime.includes(statusSelect.value);
+      [checkIn, checkOut].forEach(function (el) {
+        el.disabled = disabled;
+        if (disabled) { el.value = ''; }
+      });
+    }
+
+    statusSelect.addEventListener('change', syncTimeFields);
+    syncTimeFields();
+  })();
+</script>
+{% endblock %}

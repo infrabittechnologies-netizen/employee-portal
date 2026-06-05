@@ -555,3 +555,159 @@ def mark_absent_view(request, pk=None):
         'today': timezone.localdate(),
     }
     return render(request, 'attendance/mark_absent.html', context)
+
+
+@login_required
+def manage_attendance_view(request, pk=None):
+    """
+    Admin attendance correction tool.
+
+    Lets an administrator add or fix an attendance record when an employee
+    forgot to check in / check out, or when a status needs adjusting.
+
+    GET  – render the form (prefilled when editing an existing record, or
+           prefilled from ?employee= & ?date= query params when adding).
+    POST – create or update the Attendance record.
+    """
+    if not (request.user.role == 'admin' or request.user.is_superuser):
+        messages.error(request, 'Only administrators can correct attendance records.')
+        return redirect('attendance:attendance_report')
+
+    from datetime import datetime
+
+    record = None
+    if pk:
+        record = get_object_or_404(Attendance.objects.select_related('employee'), pk=pk)
+
+    if request.method == 'POST':
+        employee_id = request.POST.get('employee')
+        date_str = request.POST.get('date')
+        status = request.POST.get('status', 'present')
+        check_in_str = request.POST.get('check_in', '').strip()    # "HH:MM"
+        check_out_str = request.POST.get('check_out', '').strip()   # "HH:MM"
+        notes = request.POST.get('notes', '').strip()
+
+        # --- Validate required inputs ---
+        if not employee_id or not date_str:
+            messages.error(request, 'Employee and date are required.')
+            return redirect(request.path)
+
+        try:
+            employee = User.objects.get(pk=employee_id, is_active=True)
+        except User.DoesNotExist:
+            messages.error(request, 'Employee not found.')
+            return redirect(request.path)
+
+        try:
+            rec_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            messages.error(request, 'Invalid date format. Please use YYYY-MM-DD.')
+            return redirect(request.path)
+
+        valid_statuses = {key for key, _ in Attendance.STATUS_CHOICES}
+        if status not in valid_statuses:
+            messages.error(request, 'Invalid status selected.')
+            return redirect(request.path)
+
+        # --- Build timezone-aware check in / out datetimes ---
+        tz = timezone.get_current_timezone()
+        check_in_dt = None
+        check_out_dt = None
+
+        def _make_dt(time_str):
+            t = datetime.strptime(time_str, '%H:%M').time()
+            naive = datetime.combine(rec_date, t)
+            return timezone.make_aware(naive, tz)
+
+        try:
+            if check_in_str:
+                check_in_dt = _make_dt(check_in_str)
+            if check_out_str:
+                check_out_dt = _make_dt(check_out_str)
+        except ValueError:
+            messages.error(request, 'Invalid time format. Please use HH:MM (24-hour).')
+            return redirect(request.path)
+
+        if check_out_dt and not check_in_dt:
+            messages.error(request, 'Cannot set a check-out time without a check-in time.')
+            return redirect(request.path)
+
+        if check_in_dt and check_out_dt and check_out_dt <= check_in_dt:
+            messages.error(request, 'Check-out time must be after the check-in time.')
+            return redirect(request.path)
+
+        # For non-working statuses, ignore any times
+        if status in ('absent', 'leave', 'holiday'):
+            check_in_dt = None
+            check_out_dt = None
+
+        # --- Create or update ---
+        # NOTE: we deliberately avoid Attendance.objects.update_or_create here.
+        # On an update it calls save(update_fields=<only the defaults keys>),
+        # which would prevent the model's save() from persisting the freshly
+        # recomputed work_hours / is_late. A plain full save() recomputes and
+        # stores everything correctly.
+        attendance = Attendance.objects.filter(employee=employee, date=rec_date).first()
+        created = attendance is None
+        if created:
+            attendance = Attendance(employee=employee, date=rec_date)
+
+        attendance.status = status
+        attendance.check_in = check_in_dt
+        attendance.check_out = check_out_dt
+        attendance.notes = notes
+
+        # Without a complete check-in + check-out pair there are no hours to
+        # compute, so reset them (model.save() only recomputes when both exist).
+        if not (check_in_dt and check_out_dt):
+            attendance.work_hours = Decimal('0.00')
+        if check_in_dt is None:
+            attendance.is_late = False
+
+        attendance.save()  # full save → recomputes work_hours / is_late / status
+
+        # Attendance.save() forces status to present/late whenever a check-in
+        # exists. Honour an explicit half_day choice that still has times.
+        if status == 'half_day':
+            Attendance.objects.filter(pk=attendance.pk).update(status='half_day')
+
+        action = 'created' if created else 'updated'
+        messages.success(
+            request,
+            f"Attendance for {employee.get_full_name() or employee.username} "
+            f"on {rec_date} has been {action}.",
+        )
+        return redirect('attendance:attendance_report')
+
+    # --- GET: render the form ---
+    employees = User.objects.filter(is_active=True).order_by('first_name', 'last_name')
+
+    # Prefill values (editing an existing record, or query-param hints when adding)
+    if record:
+        prefill_employee = str(record.employee_id)
+        prefill_date = record.date.isoformat()
+        prefill_status = record.status
+        prefill_check_in = timezone.localtime(record.check_in).strftime('%H:%M') if record.check_in else ''
+        prefill_check_out = timezone.localtime(record.check_out).strftime('%H:%M') if record.check_out else ''
+        prefill_notes = record.notes
+    else:
+        prefill_employee = request.GET.get('employee', '')
+        prefill_date = request.GET.get('date', timezone.localdate().isoformat())
+        prefill_status = 'present'
+        prefill_check_in = ''
+        prefill_check_out = ''
+        prefill_notes = ''
+
+    context = {
+        'record': record,
+        'employees': employees,
+        'status_choices': Attendance.STATUS_CHOICES,
+        'today': timezone.localdate(),
+        'prefill_employee': prefill_employee,
+        'prefill_date': prefill_date,
+        'prefill_status': prefill_status,
+        'prefill_check_in': prefill_check_in,
+        'prefill_check_out': prefill_check_out,
+        'prefill_notes': prefill_notes,
+    }
+    return render(request, 'attendance/manage_attendance.html', context)
