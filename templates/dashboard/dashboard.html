@@ -325,7 +325,7 @@
           <table class="table table-sm mb-0">
             <thead>
               <tr>
-                <th>Reason</th>
+                <th>Date &amp; Reason</th>
                 <th class="text-end">Amount</th>
               </tr>
             </thead>
@@ -333,8 +333,14 @@
               {% for ded in current_month_deductions %}
               <tr>
                 <td>
-                  <i class="fas fa-dot-circle text-danger me-1 text-xs"></i>
-                  {{ ded.get_reason_display }}
+                  <div>
+                    <i class="fas fa-dot-circle text-danger me-1 text-xs"></i>
+                    <span class="fw-semibold">{{ ded.date|date:"d M" }}</span>
+                    <span class="text-muted">· {{ ded.get_reason_display }}</span>
+                  </div>
+                  {% if ded.description %}
+                  <div class="text-xs text-muted ms-3">{{ ded.description }}</div>
+                  {% endif %}
                 </td>
                 <td class="text-end text-danger fw-semibold">PKR {{ ded.amount|floatformat:0 }}</td>
               </tr>

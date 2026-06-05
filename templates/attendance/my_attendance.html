@@ -434,6 +434,22 @@
           </div>
         </div>
 
+        <!-- Salary deduction preview -->
+        <div id="cs-deduction-wrap" class="p-3 rounded-3 mb-1"
+             style="background:#fef2f2;border:1px solid #fecaca;display:none;">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <div class="text-xs fw-bold text-uppercase letter-spacing-1" style="color:#b91c1c;">
+              <i class="fas fa-money-bill-wave me-1"></i>Salary Deduction (if you check out now)
+            </div>
+            <div class="fw-bold" id="cs-deduction-total" style="font-size:1.25rem;color:#b91c1c;">Rs 0.00</div>
+          </div>
+          <div id="cs-deduction-items" class="d-flex flex-column gap-1"></div>
+        </div>
+        <div id="cs-no-deduction" class="p-3 rounded-3 mb-1 text-sm fw-semibold"
+             style="background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;display:none;">
+          <i class="fas fa-check-circle me-1"></i>No salary deduction — great, you're on schedule!
+        </div>
+
       </div>
       <div class="modal-footer border-0 px-4 pb-4 pt-0 gap-2">
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
@@ -595,6 +611,33 @@ function populateCheckoutModal(d) {
     'Check Out at ' + d.tentative_checkout,
     'Net worked: ' + d.net_hours_display + ' (' + d.net_mins + ' min)'
   );
+
+  // Salary deduction preview
+  const dedWrap   = document.getElementById('cs-deduction-wrap');
+  const dedItems  = document.getElementById('cs-deduction-items');
+  const noDed     = document.getElementById('cs-no-deduction');
+  const dedTotal  = parseFloat(d.deduction_total || '0');
+  if (dedTotal > 0) {
+    document.getElementById('cs-deduction-total').textContent = 'Rs ' + dedTotal.toFixed(2);
+    const rows = [];
+    if ((d.deduction_late_min || 0) > 0)
+      rows.push(['Late arrival', d.deduction_late_min + ' min', d.deduction_late_amt]);
+    if ((d.deduction_early_min || 0) > 0)
+      rows.push(['Early check-out', d.deduction_early_min + ' min', d.deduction_early_amt]);
+    if ((d.deduction_break_min || 0) > 0)
+      rows.push(['Break overstay', d.deduction_break_min + ' min', d.deduction_break_amt]);
+    dedItems.innerHTML = rows.map(r =>
+      `<div class="d-flex justify-content-between text-sm">
+         <span class="text-muted"><i class="fas fa-minus-circle me-1 text-danger"></i>${r[0]} <span class="text-xs">(${r[1]})</span></span>
+         <span class="fw-semibold" style="color:#b91c1c;">Rs ${parseFloat(r[2]).toFixed(2)}</span>
+       </div>`
+    ).join('');
+    dedWrap.style.display = '';
+    noDed.style.display = 'none';
+  } else {
+    dedWrap.style.display = 'none';
+    noDed.style.display = '';
+  }
 }
 
 function confirmCheckout() {

@@ -62,9 +62,17 @@ class SalaryDeduction(models.Model):
         ('other', 'Other'),
     ]
 
+    SOURCE_CHOICES = [
+        ('manual', 'Manual (admin)'),
+        ('attendance', 'Auto (attendance)'),
+    ]
+
     employee = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='deductions')
     payslip = models.ForeignKey(Payslip, on_delete=models.SET_NULL, null=True, blank=True, related_name='deduction_items')
     reason = models.CharField(max_length=30, choices=REASON_CHOICES, default='other')
+    # 'attendance' rows are generated automatically from late/early/break/absent
+    # rules and are safe to recompute; 'manual' rows are entered by an admin.
+    source = models.CharField(max_length=20, choices=SOURCE_CHOICES, default='manual')
     description = models.TextField(blank=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     date = models.DateField(default=timezone.now)

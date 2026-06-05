@@ -166,6 +166,11 @@ class Command(BaseCommand):
                     record.notes = note
                 record.save()
 
+                # Apply the matching salary deduction (full day for absent /
+                # unpaid leave; nothing for paid leave).
+                from salary.deductions import sync_attendance_deduction
+                sync_attendance_deduction(record)
+
             if dry_run:
                 transaction.set_rollback(True)
 

@@ -88,6 +88,9 @@ def check_in_view(request):
             # preserving the original check_in time.
             Attendance.objects.filter(pk=existing.pk).update(check_out=None, work_hours=0)
             existing.refresh_from_db()
+            # Day is in progress again → drop any auto deduction until re-checkout.
+            from salary.deductions import sync_attendance_deduction
+            sync_attendance_deduction(existing)
             ci_local = timezone.localtime(existing.check_in)
             return JsonResponse({
                 'success': True,
@@ -180,6 +183,10 @@ def check_out_view(request):
     # work_hours is recalculated inside Attendance.save() using net_work_hours()
     attendance.save()
 
+    # Recompute and persist this day's attendance-based salary deduction.
+    from salary.deductions import sync_attendance_deduction
+    deduction = sync_attendance_deduction(attendance)
+
     co_local = timezone.localtime(attendance.check_out)
     return JsonResponse({
         'success': True,
@@ -188,6 +195,7 @@ def check_out_view(request):
         'time': co_local.strftime('%I:%M %p'),
         'work_hours': str(attendance.work_hours),
         'attendance_id': attendance.pk,
+        'deduction': str(deduction['amount']),
     })
 
 
@@ -303,6 +311,10 @@ def day_summary_api(request):
             'delay_minutes':   rec.delay_minutes if rec else None,
         })
 
+    # Tentative salary deduction if the employee checks out right now.
+    from salary.deductions import deduction_for_attendance
+    ded = deduction_for_attendance(attendance, tentative_checkout=now_aware)
+
     return JsonResponse({
         'check_in':            ci_local.strftime('%I:%M %p'),
         'is_late':             attendance.is_late,
@@ -314,6 +326,16 @@ def day_summary_api(request):
         'raw_mins':            raw_mins,
         'break_deducted_mins': break_deducted,
         'net_hours_display':   f"{net_mins // 60}h {net_mins % 60}m",
+        # --- Deduction preview ---
+        'deduction_total':       str(ded['amount']),
+        'deduction_late_min':    ded['late_minutes'],
+        'deduction_early_min':   ded['early_minutes'],
+        'deduction_break_min':   ded['break_minutes'],
+        'deduction_late_amt':    str(ded['late_amount']),
+        'deduction_early_amt':   str(ded['early_amount']),
+        'deduction_break_amt':   str(ded['break_amount']),
+        'deduction_daily_rate':  str(ded['daily_rate']),
+        'deduction_description': ded['description'],
     })
 
 
@@ -719,6 +741,11 @@ def manage_attendance_view(request, pk=None):
         # exists. Honour an explicit half_day choice that still has times.
         if status == 'half_day':
             Attendance.objects.filter(pk=attendance.pk).update(status='half_day')
+            attendance.refresh_from_db()
+
+        # Recompute the day's attendance-based salary deduction after the fix.
+        from salary.deductions import sync_attendance_deduction
+        sync_attendance_deduction(attendance)
 
         action = 'created' if created else 'updated'
         messages.success(
