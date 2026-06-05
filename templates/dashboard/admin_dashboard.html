@@ -90,7 +90,9 @@
         <i class="fas fa-chart-bar text-primary me-2"></i>Department-wise Employee Count
       </div>
       <div class="card-body p-4">
-        <canvas id="deptChart" height="250"></canvas>
+        <div style="position:relative; height:280px;">
+          <canvas id="deptChart"></canvas>
+        </div>
       </div>
     </div>
   </div>
@@ -298,7 +300,7 @@
 // Department Bar Chart
 const deptCtx = document.getElementById('deptChart');
 if (deptCtx) {
-  const deptLabels = [{% for d in dept_data %}'{{ d.name }}'{% if not forloop.last %},{% endif %}{% endfor %}];
+  const deptLabels = [{% for d in dept_data %}'{{ d.name|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}];
   const deptCounts = [{% for d in dept_data %}{{ d.count }}{% if not forloop.last %},{% endif %}{% endfor %}];
   new Chart(deptCtx, {
     type: 'bar',
@@ -312,17 +314,21 @@ if (deptCtx) {
           'rgba(239,68,68,.8)','rgba(59,130,246,.8)','rgba(168,85,247,.8)',
           'rgba(236,72,153,.8)','rgba(20,184,166,.8)',
         ],
-        borderRadius: 8,
+        borderRadius: 6,
         borderSkipped: false,
+        maxBarThickness: 48,
+        categoryPercentage: 0.6,
+        barPercentage: 0.8,
       }]
     },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
         y: {
           beginAtZero: true,
-          ticks: { stepSize: 1 },
+          ticks: { stepSize: 1, precision: 0 },
           grid: { color: '#f3f4f6' }
         },
         x: { grid: { display: false } }
