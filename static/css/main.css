@@ -433,6 +433,29 @@ body {
 .table tbody tr:hover td { background: #f8fafc; }
 
 /* ================================================================
+   ACTIONS CARD  — let row-action dropdowns (⋮) escape without clipping
+   The card normally has overflow:hidden for rounded corners; we round
+   the table cells themselves instead so the menu can open freely.
+================================================================ */
+.actions-card { overflow: visible; }
+.actions-card .card-body { overflow: visible; }
+.actions-card .table-responsive { overflow: visible; }
+
+.actions-card .table thead th:first-child { border-top-left-radius: 14px; }
+.actions-card .table thead th:last-child  { border-top-right-radius: 14px; }
+.actions-card .table tbody tr:last-child td:first-child { border-bottom-left-radius: 14px; }
+.actions-card .table tbody tr:last-child td:last-child  { border-bottom-right-radius: 14px; }
+
+/* The action dropdown menu sits above everything and never gets cut off */
+.actions-card .dropdown-menu {
+  z-index: 1056;
+  min-width: 190px;
+  border-radius: 12px;
+}
+.actions-card .dropdown-item { padding: 8px 14px; font-size: .85rem; }
+.actions-card .dropdown-item:active { background: var(--bs-primary, #6366f1); color: #fff; }
+
+/* ================================================================
    FORMS
 ================================================================ */
 .form-control, .form-select {
