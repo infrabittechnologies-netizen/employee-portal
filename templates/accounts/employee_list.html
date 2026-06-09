@@ -153,6 +153,15 @@
                   {% if emp.pk != request.user.pk and not emp.is_superuser %}
                   <li><hr class="dropdown-divider my-1"></li>
                   <li>
+                    <button type="button" class="dropdown-item d-flex align-items-center gap-2 text-warning"
+                            data-bs-toggle="modal" data-bs-target="#resetDataModal"
+                            data-emp-name="{{ emp.get_full_name|default:emp.username }}"
+                            data-emp-id="{{ emp.employee_id|default:'—' }}"
+                            data-emp-url="{% url 'accounts:employee_reset_data' emp.pk %}">
+                      <i class="fas fa-rotate-left text-warning"></i>Reset Data
+                    </button>
+                  </li>
+                  <li>
                     <button type="button" class="dropdown-item d-flex align-items-center gap-2 text-danger"
                             data-bs-toggle="modal" data-bs-target="#deleteEmployeeModal"
                             data-emp-name="{{ emp.get_full_name|default:emp.username }}"
@@ -219,20 +228,72 @@
   </div>
 </div>
 
+<!-- Reset Data Confirmation Modal -->
+<div class="modal fade" id="resetDataModal" tabindex="-1" aria-labelledby="resetDataModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-header bg-warning text-dark border-0">
+        <h5 class="modal-title" id="resetDataModalLabel">
+          <i class="fas fa-triangle-exclamation me-2"></i>Reset Employee Data
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-4">
+        <p class="mb-3">
+          You are about to reset all data for
+          <strong id="resetEmpName">this employee</strong>
+          <span class="text-muted" id="resetEmpId"></span>.
+        </p>
+        <div class="alert alert-warning d-flex align-items-start gap-2 mb-0 rounded-3">
+          <i class="fas fa-circle-exclamation mt-1"></i>
+          <div class="text-sm">
+            This <strong>cannot be undone</strong>. All of this employee's records —
+            attendance, leave applications &amp; balances, payslips, deductions,
+            bonuses, performance reviews, KPIs and notifications — will be
+            permanently deleted. The <strong>account itself stays</strong>; the
+            employee simply starts with a clean history.
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer border-0 pt-0 px-4 pb-4">
+        <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cancel</button>
+        <form id="resetDataForm" method="post" action="" class="d-inline m-0">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-warning px-4">
+            <i class="fas fa-rotate-left me-1"></i>Reset Data
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
   (function () {
     const deleteModal = document.getElementById('deleteEmployeeModal');
-    if (!deleteModal) return;
-    deleteModal.addEventListener('show.bs.modal', function (event) {
-      const trigger = event.relatedTarget;
-      if (!trigger) return;
-      deleteModal.querySelector('#deleteEmpName').textContent = trigger.getAttribute('data-emp-name') || 'this employee';
-      deleteModal.querySelector('#deleteEmpId').textContent = '(' + (trigger.getAttribute('data-emp-id') || '—') + ')';
-      deleteModal.querySelector('#deleteEmployeeForm').setAttribute('action', trigger.getAttribute('data-emp-url') || '');
-    });
+    if (deleteModal) {
+      deleteModal.addEventListener('show.bs.modal', function (event) {
+        const trigger = event.relatedTarget;
+        if (!trigger) return;
+        deleteModal.querySelector('#deleteEmpName').textContent = trigger.getAttribute('data-emp-name') || 'this employee';
+        deleteModal.querySelector('#deleteEmpId').textContent = '(' + (trigger.getAttribute('data-emp-id') || '—') + ')';
+        deleteModal.querySelector('#deleteEmployeeForm').setAttribute('action', trigger.getAttribute('data-emp-url') || '');
+      });
+    }
+
+    const resetModal = document.getElementById('resetDataModal');
+    if (resetModal) {
+      resetModal.addEventListener('show.bs.modal', function (event) {
+        const trigger = event.relatedTarget;
+        if (!trigger) return;
+        resetModal.querySelector('#resetEmpName').textContent = trigger.getAttribute('data-emp-name') || 'this employee';
+        resetModal.querySelector('#resetEmpId').textContent = '(' + (trigger.getAttribute('data-emp-id') || '—') + ')';
+        resetModal.querySelector('#resetDataForm').setAttribute('action', trigger.getAttribute('data-emp-url') || '');
+      });
+    }
   })();
 </script>
 {% endblock %}

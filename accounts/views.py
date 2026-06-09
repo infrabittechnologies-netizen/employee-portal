@@ -395,3 +395,58 @@ def employee_delete_view(request, pk):
     # A direct GET falls back to the employee detail page; the modal handles
     # confirmation in the normal flow.
     return redirect('accounts:employee_detail', pk=employee.pk)
+
+
+@login_required
+@admin_required
+def employee_reset_data_view(request, pk):
+    """
+    Wipe ALL of an employee's records while keeping their account intact:
+    attendance (and break logs), leave applications & balances, payslips,
+    salary deductions & bonuses, performance reviews, KPIs and notifications.
+
+    The employee, their login, profile and salary settings remain — they
+    simply start with a clean history.
+
+    Guard rails (same as delete):
+      - You cannot reset your own account.
+      - Superuser accounts are protected.
+      - Only acts on POST (the UI shows a confirmation modal first).
+    """
+    employee = get_object_or_404(CustomUser, pk=pk)
+
+    if employee.pk == request.user.pk:
+        messages.error(request, 'You cannot reset your own account data.')
+        return redirect('accounts:employee_list')
+
+    if employee.is_superuser:
+        messages.error(request, 'Superuser accounts cannot be reset.')
+        return redirect('accounts:employee_list')
+
+    if request.method == 'POST':
+        from django.db import transaction
+
+        display_name = employee.get_full_name() or employee.username
+        employee_code = employee.employee_id or '—'
+
+        # Each accessor is a reverse relation owned by this employee. Wrapped in
+        # a transaction so a reset is all-or-nothing.
+        with transaction.atomic():
+            employee.attendances.all().delete()       # cascades AttendanceBreak
+            employee.leave_applications.all().delete()
+            employee.leave_balances.all().delete()
+            employee.payslips.all().delete()
+            employee.deductions.all().delete()
+            employee.bonuses.all().delete()
+            employee.performance_reviews.all().delete()
+            employee.kpis.all().delete()
+            employee.notifications.all().delete()
+
+        messages.success(
+            request,
+            f"All data for {display_name} ({employee_code}) has been reset. "
+            f"The account is intact and now has a clean history."
+        )
+        return redirect('accounts:employee_list')
+
+    return redirect('accounts:employee_detail', pk=employee.pk)
