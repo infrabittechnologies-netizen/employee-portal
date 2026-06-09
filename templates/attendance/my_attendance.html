@@ -92,8 +92,12 @@
             <!-- ── RESTART WORK STATE ── -->
             <div class="att-break-badge" style="background:rgba(99,102,241,.12);color:#818cf8;border-color:rgba(99,102,241,.28);">
               <i class="fas fa-exclamation-circle me-1"></i>
-              Break {{ post_break_info.break_number }} ended
-              <span id="minutesSinceBreak">{{ post_break_info.minutes_since_end }}</span> min ago
+              {% if post_break_info.early %}
+                Break {{ post_break_info.break_number }} ending soon — resume early
+              {% else %}
+                Break {{ post_break_info.break_number }} ended
+                <span id="minutesSinceBreak">{{ post_break_info.minutes_since_end }}</span> min ago
+              {% endif %}
             </div>
             <button id="restartWorkBtn"
                     class="att-action-btn att-restart"
@@ -101,7 +105,13 @@
               <i class="fas fa-play att-btn-icon"></i>
               <span>Restart Work</span>
             </button>
-            <div class="att-checked-in-note">Break {{ post_break_info.break_number }} of 2 — click to resume timer</div>
+            <div class="att-checked-in-note">
+              {% if post_break_info.early %}
+                Break {{ post_break_info.break_number }} of 2 — you can resume up to {{ post_break_info.break_end|time:"h:i A" }}
+              {% else %}
+                Break {{ post_break_info.break_number }} of 2 — click to resume timer
+              {% endif %}
+            </div>
 
           {% else %}
             <!-- ── WORKING / CHECK-OUT STATE ── -->
@@ -486,7 +496,7 @@
       return;
     }
     if (countdownEl) countdownEl.textContent = fmt(remaining);
-    var totalSecs = durationMin * 60;
+    var totalSecs = {{ break_info.countdown_total_secs }};
     var pct = Math.min(100, Math.round((totalSecs - remaining) * 100 / totalSecs));
     if (fillEl) fillEl.style.width = pct + '%';
     remaining--;

@@ -37,6 +37,11 @@ TOTAL_BREAK_MINUTES = 95   # 75 + 20
 # (e.g. a 2:00 PM shift opens check-in at 1:50 PM).
 EARLY_CHECKIN_MINUTES = 10
 
+# Employees may resume work (Restart Work) up to this many minutes before a
+# break officially ends (e.g. Break 1 ends 7:15 PM → restart opens 7:10 PM).
+# Resuming inside this early window counts as on-time (no overstay).
+BREAK_EARLY_RESTART_MINUTES = 5
+
 # How long after the shift ends (SHIFT_END) before employees are automatically
 # signed out of the portal (e.g. 11:00 PM shift end → auto logout at 11:10 PM).
 AUTO_LOGOUT_AFTER_MINUTES = 10
@@ -48,6 +53,19 @@ SHIFT_NAMES = {
     3: "Regular Shift",
     4: "Friday Shift",
 }
+
+
+def _shift_time(t: datetime.time, minutes: int) -> datetime.time:
+    """Return ``t`` shifted by ``minutes`` (may be negative), as a time object."""
+    anchor = datetime.date(2000, 1, 1)
+    shifted = datetime.datetime.combine(anchor, t) + datetime.timedelta(minutes=minutes)
+    return shifted.time()
+
+
+def break_restart_opens(b_end: datetime.time) -> datetime.time:
+    """The time the Restart-Work option opens for a break ending at ``b_end``
+    (``b_end`` − BREAK_EARLY_RESTART_MINUTES)."""
+    return _shift_time(b_end, -BREAK_EARLY_RESTART_MINUTES)
 
 
 def is_weekend(d) -> bool:
@@ -143,25 +161,34 @@ def get_break_status(now_aware=None) -> dict | None:
     local_t   = local_now.time()
 
     for idx, (b_start, b_end) in enumerate(BREAKS):
-        if b_start <= local_t < b_end:
+        restart_opens = break_restart_opens(b_end)
+        # Once the early-restart window opens we no longer treat the employee as
+        # "on break" — the Restart Work option (post-break state) takes over so
+        # they can resume a few minutes early.
+        if b_start <= local_t < restart_opens:
             anchor      = local_now.date()
             start_dt    = datetime.datetime.combine(anchor, b_start)
             end_dt      = datetime.datetime.combine(anchor, b_end)
+            ropen_dt    = datetime.datetime.combine(anchor, restart_opens)
             now_dt      = datetime.datetime.combine(anchor, local_t)
 
-            duration_s  = int((end_dt  - start_dt).total_seconds())
-            elapsed_s   = int((now_dt  - start_dt).total_seconds())
-            remaining_s = max(0, duration_s - elapsed_s)
+            # Real break length (for display) vs the countdown target (restart open).
+            duration_s  = int((end_dt   - start_dt).total_seconds())
+            countdown_s = int((ropen_dt - start_dt).total_seconds())
+            elapsed_s   = int((now_dt   - start_dt).total_seconds())
+            remaining_s = max(0, countdown_s - elapsed_s)
 
             return {
-                'break_number':   idx + 1,
-                'total_breaks':   len(BREAKS),
-                'start':          b_start,
-                'end':            b_end,
-                'duration_min':   duration_s  // 60,
-                'elapsed_min':    elapsed_s   // 60,
-                'remaining_secs': remaining_s,
-                'progress_pct':   min(100, int(elapsed_s * 100 / duration_s)),
+                'break_number':         idx + 1,
+                'total_breaks':         len(BREAKS),
+                'start':                b_start,
+                'end':                  b_end,
+                'duration_min':         duration_s // 60,
+                'elapsed_min':          elapsed_s  // 60,
+                'remaining_secs':       remaining_s,
+                'countdown_total_secs': countdown_s,
+                'early_restart_minutes': BREAK_EARLY_RESTART_MINUTES,
+                'progress_pct':         min(100, int(elapsed_s * 100 / countdown_s)) if countdown_s > 0 else 100,
             }
     return None
 
@@ -194,8 +221,10 @@ def get_post_break_status(now_aware=None, restarted_break_numbers=None) -> dict 
         if break_num in restarted_break_numbers:
             continue
 
-        # Skip if this break hasn't ended yet (or we're inside it)
-        if local_t < b_end:
+        # The restart option opens a few minutes BEFORE the break officially
+        # ends, so an employee may resume early.
+        restart_opens = break_restart_opens(b_end)
+        if local_t < restart_opens:
             continue
 
         # Determine the end of the "waiting" window:
@@ -208,16 +237,19 @@ def get_post_break_status(now_aware=None, restarted_break_numbers=None) -> dict 
         if local_t >= window_end:
             continue  # past this break's waiting window
 
-        # We are in the restart window — employee hasn't clicked Restart yet
+        # We are in the restart window — employee hasn't clicked Restart yet.
         anchor         = local_now.date()
         end_dt         = datetime.datetime.combine(anchor, b_end)
         now_dt         = datetime.datetime.combine(anchor, local_t)
-        minutes_since  = int((now_dt - end_dt).total_seconds() / 60)
+        # Negative before the official end (early resume) → clamp to 0 (on time).
+        minutes_since  = max(0, int((now_dt - end_dt).total_seconds() / 60))
+        early          = local_t < b_end
 
         return {
             'break_number':      break_num,
             'break_end':         b_end,
             'minutes_since_end': minutes_since,
+            'early':             early,
         }
 
     return None
