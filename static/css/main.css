@@ -40,7 +40,7 @@ body {
 .portal-bg {
   position: fixed;
   inset: 0;
-  z-index: 0;
+  z-index: -1;            /* sits behind ALL content; never traps modals */
   overflow: hidden;
   pointer-events: none;
   background:
@@ -143,7 +143,7 @@ body {
     linear-gradient(180deg, #141b2e 0%, #0b1020 100%);
   border-right: 1px solid rgba(255,255,255,.05);
   box-shadow: 4px 0 30px rgba(2,6,23,.35);
-  z-index: 1050;
+  z-index: 1045;   /* below Bootstrap modal-backdrop (1050) so modals dim it too */
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -523,8 +523,6 @@ body {
   display: flex;
   flex-direction: column;
   transition: margin-left .3s ease;
-  position: relative;
-  z-index: 1;
 }
 
 /* Flash messages */
@@ -681,9 +679,10 @@ body {
 .actions-card .table tbody tr:last-child td:first-child { border-bottom-left-radius: 14px; }
 .actions-card .table tbody tr:last-child td:last-child  { border-bottom-right-radius: 14px; }
 
-/* The action dropdown menu sits above everything and never gets cut off */
+/* The action dropdown menu sits above table rows/cards but BELOW modals
+   (Bootstrap modal-backdrop 1050 / modal 1055) so it never floats over a dialog. */
 .actions-card .dropdown-menu {
-  z-index: 1056;
+  z-index: 1031;
   min-width: 190px;
   border-radius: 12px;
 }
