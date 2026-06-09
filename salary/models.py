@@ -88,6 +88,37 @@ class SalaryDeduction(models.Model):
         return f"{self.employee} - {self.reason} - {self.amount}"
 
 
+class SalesCommission(models.Model):
+    """A sales commission an admin pays to an employee.
+
+    Each record is one paid commission == one sale. It carries the exact
+    date & time it was paid, shows on the employee's dashboard, and is added
+    (like a bonus) into the monthly payslip's net salary.
+    """
+    employee = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='commissions'
+    )
+    payslip = models.ForeignKey(
+        Payslip, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='commission_items'
+    )
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    note = models.CharField(max_length=200, blank=True)
+    paid_at = models.DateTimeField(default=timezone.now)   # exact date & time
+    paid_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='paid_commissions'
+    )
+    month = models.IntegerField()
+    year = models.IntegerField()
+
+    class Meta:
+        ordering = ['-paid_at']
+
+    def __str__(self):
+        return f"{self.employee} - commission {self.amount} on {self.paid_at:%Y-%m-%d %H:%M}"
+
+
 class SalaryBonus(models.Model):
     employee = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='bonuses')
     payslip = models.ForeignKey(Payslip, on_delete=models.SET_NULL, null=True, blank=True, related_name='bonus_items')

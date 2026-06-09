@@ -150,6 +150,17 @@
                       <i class="fas fa-pen text-secondary"></i>Edit
                     </a>
                   </li>
+                  {% if not emp.is_superuser %}
+                  <li>
+                    <button type="button" class="dropdown-item d-flex align-items-center gap-2 text-success"
+                            data-bs-toggle="modal" data-bs-target="#payCommissionModal"
+                            data-emp-name="{{ emp.get_full_name|default:emp.username }}"
+                            data-emp-id="{{ emp.employee_id|default:'—' }}"
+                            data-emp-url="{% url 'salary:pay_commission' emp.pk %}">
+                      <i class="fas fa-hand-holding-dollar text-success"></i>Pay Commission
+                    </button>
+                  </li>
+                  {% endif %}
                   {% if emp.pk != request.user.pk and not emp.is_superuser %}
                   <li><hr class="dropdown-divider my-1"></li>
                   <li>
@@ -268,11 +279,67 @@
   </div>
 </div>
 
+<!-- Pay Commission Modal -->
+<div class="modal fade" id="payCommissionModal" tabindex="-1" aria-labelledby="payCommissionModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-header bg-success text-white border-0">
+        <h5 class="modal-title" id="payCommissionModalLabel">
+          <i class="fas fa-hand-holding-dollar me-2"></i>Pay Sales Commission
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="payCommissionForm" method="post" action="">
+        {% csrf_token %}
+        <div class="modal-body p-4">
+          <p class="mb-3">
+            Paying commission to
+            <strong id="commEmpName">this employee</strong>
+            <span class="text-muted" id="commEmpId"></span>.
+          </p>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Commission Amount (PKR) <span class="text-danger">*</span></label>
+            <input type="number" name="amount" class="form-control" step="0.01" min="0.01" placeholder="0.00" required />
+          </div>
+          <div class="mb-2">
+            <label class="form-label fw-semibold">Note <span class="text-muted fw-normal">(optional)</span></label>
+            <input type="text" name="note" class="form-control" maxlength="200" placeholder="e.g., Order #1234, Monthly target bonus" />
+          </div>
+          <div class="alert alert-success d-flex align-items-start gap-2 mb-0 rounded-3 mt-3">
+            <i class="fas fa-circle-info mt-1"></i>
+            <div class="text-sm">
+              This records <strong>1 sale</strong> with the current date &amp; time, shows
+              instantly on the employee's dashboard, and is added to this month's salary slip.
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer border-0 pt-0 px-4 pb-4">
+          <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-success px-4">
+            <i class="fas fa-paper-plane me-1"></i>Submit Commission
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
   (function () {
+    const commModal = document.getElementById('payCommissionModal');
+    if (commModal) {
+      commModal.addEventListener('show.bs.modal', function (event) {
+        const trigger = event.relatedTarget;
+        if (!trigger) return;
+        commModal.querySelector('#commEmpName').textContent = trigger.getAttribute('data-emp-name') || 'this employee';
+        commModal.querySelector('#commEmpId').textContent = '(' + (trigger.getAttribute('data-emp-id') || '—') + ')';
+        commModal.querySelector('#payCommissionForm').setAttribute('action', trigger.getAttribute('data-emp-url') || '');
+      });
+    }
+
     const deleteModal = document.getElementById('deleteEmployeeModal');
     if (deleteModal) {
       deleteModal.addEventListener('show.bs.modal', function (event) {

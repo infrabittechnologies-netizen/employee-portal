@@ -292,8 +292,21 @@ def employee_detail_view(request, pk):
             messages.error(request, 'You can only view your own profile.')
             return redirect('accounts:profile')
 
+    # Sales commissions for the current month (shown to admin/manager viewers).
+    from decimal import Decimal
+    from salary.models import SalesCommission
+    from django.utils import timezone as _tz
+    _now = _tz.now()
+    employee_commissions = SalesCommission.objects.filter(
+        employee=employee, month=_now.month, year=_now.year
+    ).order_by('-paid_at')
+    commission_total = sum((c.amount for c in employee_commissions), Decimal('0.00'))
+
     context = {
         'employee': employee,
+        'employee_commissions': employee_commissions,
+        'commission_total': commission_total,
+        'commission_sales_count': employee_commissions.count(),
     }
     return render(request, 'accounts/employee_detail.html', context)
 

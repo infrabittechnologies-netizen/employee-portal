@@ -10,6 +10,7 @@ urlpatterns = [
     path('generate/', views.generate_payslip_view, name='generate_payslip'),
     path('add-deduction/', views.add_deduction_view, name='add_deduction'),
     path('add-bonus/', views.add_bonus_view, name='add_bonus'),
+    path('commission/<int:pk>/pay/', views.pay_commission_view, name='pay_commission'),
     path('report/', views.salary_report_view, name='salary_report'),
     path('process-payroll/', views.process_payroll_view, name='process_payroll'),
 ]

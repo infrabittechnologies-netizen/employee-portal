@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from attendance.models import Attendance
 from leaves.models import LeaveApplication, LeaveBalance
-from salary.models import SalaryDeduction, Payslip
+from salary.models import SalaryDeduction, Payslip, SalesCommission
 from performance.models import PerformanceReview
 from holidays.models import Holiday, Announcement
 from notifications_app.models import Notification
@@ -55,6 +55,14 @@ def dashboard_view(request):
         employee=user, month=today.month, year=today.year
     ).order_by('-date')
     total_deductions = sum(d.amount for d in current_month_deductions)
+
+    # Sales commissions this month — each record is one sale.
+    current_month_commissions = SalesCommission.objects.filter(
+        employee=user, month=today.month, year=today.year
+    ).order_by('-paid_at')
+    commission_total = sum(c.amount for c in current_month_commissions)
+    sales_count = current_month_commissions.count()
+
     latest_payslip = Payslip.objects.filter(employee=user).first()
     latest_review = PerformanceReview.objects.filter(employee=user).first()
     upcoming_holidays = Holiday.objects.filter(
@@ -88,6 +96,9 @@ def dashboard_view(request):
         'pending_leaves': pending_leaves,
         'current_month_deductions': current_month_deductions,
         'total_deductions': total_deductions,
+        'current_month_commissions': current_month_commissions,
+        'commission_total': commission_total,
+        'sales_count': sales_count,
         'latest_payslip': latest_payslip,
         'latest_review': latest_review,
         'upcoming_holidays': upcoming_holidays,

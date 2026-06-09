@@ -116,6 +116,16 @@
                   <td class="text-sm text-end text-success">{{ bonus.amount|floatformat:2 }}</td>
                 </tr>
                 {% endfor %}
+                {% for comm in commissions %}
+                <tr>
+                  <td class="text-sm">
+                    <i class="fas fa-hand-holding-dollar text-success me-1"></i>Sales Commission
+                    {% if comm.note %}<span class="text-muted text-xs">({{ comm.note }})</span>{% endif %}
+                    <span class="text-muted text-xs d-block">{{ comm.paid_at|date:"d M Y, h:i A" }}</span>
+                  </td>
+                  <td class="text-sm text-end text-success">{{ comm.amount|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
               </tbody>
               <tfoot style="background:#f0f9ff;">
                 <tr>

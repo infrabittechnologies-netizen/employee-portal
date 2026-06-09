@@ -1,17 +1,20 @@
 import calendar
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
+
+from django.views.decorators.http import require_POST
 
 from accounts.decorators import admin_required
 from attendance.models import Attendance
 from .forms import BonusForm, DeductionForm, GeneratePayslipForm
-from .models import Payslip, SalaryBonus, SalaryDeduction
+from .models import Payslip, SalaryBonus, SalaryDeduction, SalesCommission
 
 User = get_user_model()
 
@@ -39,11 +42,22 @@ def my_salary_view(request):
         month=current_month,
         year=current_year,
     )
+    current_commissions = SalesCommission.objects.filter(
+        employee=request.user,
+        month=current_month,
+        year=current_year,
+    ).order_by('-paid_at')
+    current_commission_total = sum(
+        (c.amount for c in current_commissions), Decimal('0.00')
+    )
 
     context = {
         'payslips': payslips,
         'current_deductions': current_deductions,
         'current_bonuses': current_bonuses,
+        'current_commissions': current_commissions,
+        'current_commission_total': current_commission_total,
+        'current_sales_count': current_commissions.count(),
         'current_month': current_month,
         'current_year': current_year,
     }
@@ -65,6 +79,9 @@ def payslip_detail_view(request, pk):
     bonuses = SalaryBonus.objects.filter(
         payslip=payslip,
     )
+    commissions = SalesCommission.objects.filter(
+        payslip=payslip,
+    )
 
     # Fall back to month/year match when items are not linked to the payslip yet
     if not deductions.exists():
@@ -79,11 +96,21 @@ def payslip_detail_view(request, pk):
             month=payslip.month,
             year=payslip.year,
         )
+    if not commissions.exists():
+        commissions = SalesCommission.objects.filter(
+            employee=payslip.employee,
+            month=payslip.month,
+            year=payslip.year,
+        )
+
+    commission_total = sum((c.amount for c in commissions), Decimal('0.00'))
 
     context = {
         'payslip': payslip,
         'deductions': deductions,
         'bonuses': bonuses,
+        'commissions': commissions,
+        'commission_total': commission_total,
     }
     return render(request, 'salary/payslip_detail.html', context)
 
@@ -137,7 +164,18 @@ def generate_payslip_view(request):
         ).values_list('amount', flat=True)
         total_bonuses_sum = sum(total_bonuses, Decimal('0.00'))
 
-        net_salary = basic_salary + total_bonuses_sum - total_deductions_sum
+        # Sales commissions for the period — added into earnings (net salary).
+        total_commissions = SalesCommission.objects.filter(
+            employee=employee,
+            month=month,
+            year=year,
+        ).values_list('amount', flat=True)
+        total_commissions_sum = sum(total_commissions, Decimal('0.00'))
+
+        # Commissions are folded into allowances so they increase net salary.
+        total_allowances_sum = total_bonuses_sum + total_commissions_sum
+
+        net_salary = basic_salary + total_allowances_sum - total_deductions_sum
 
         payslip, created = Payslip.objects.update_or_create(
             employee=employee,
@@ -145,7 +183,7 @@ def generate_payslip_view(request):
             year=year,
             defaults={
                 'basic_salary': basic_salary,
-                'total_allowances': total_bonuses_sum,
+                'total_allowances': total_allowances_sum,
                 'total_deductions': total_deductions_sum,
                 'net_salary': net_salary,
                 'working_days': working_days,
@@ -157,7 +195,7 @@ def generate_payslip_view(request):
             },
         )
 
-        # Link orphan deductions/bonuses to this payslip
+        # Link orphan deductions/bonuses/commissions to this payslip
         SalaryDeduction.objects.filter(
             employee=employee,
             month=month,
@@ -166,6 +204,13 @@ def generate_payslip_view(request):
         ).update(payslip=payslip)
 
         SalaryBonus.objects.filter(
+            employee=employee,
+            month=month,
+            year=year,
+            payslip__isnull=True,
+        ).update(payslip=payslip)
+
+        SalesCommission.objects.filter(
             employee=employee,
             month=month,
             year=year,
@@ -194,6 +239,65 @@ def add_deduction_view(request):
 
     context = {'form': form, 'title': 'Add Deduction'}
     return render(request, 'salary/deduction_form.html', context)
+
+
+@admin_required
+@require_POST
+def pay_commission_view(request, pk):
+    """Pay a sales commission to an employee.
+
+    Each submission records ONE commission (== one sale) with the exact
+    date & time, shows instantly on the employee's dashboard, and is added
+    into that month's payslip net salary.
+    """
+    employee = get_object_or_404(User, pk=pk)
+
+    if employee.is_superuser:
+        messages.error(request, 'Cannot pay commission to a superuser account.')
+        return redirect('accounts:employee_list')
+
+    raw_amount = (request.POST.get('amount') or '').strip()
+    note = (request.POST.get('note') or '').strip()
+    try:
+        amount = Decimal(raw_amount)
+    except (InvalidOperation, ValueError):
+        amount = Decimal('0')
+
+    if amount <= 0:
+        messages.error(request, 'Please enter a valid commission amount.')
+        return redirect('accounts:employee_list')
+
+    now = timezone.now()
+    SalesCommission.objects.create(
+        employee=employee,
+        amount=amount,
+        note=note,
+        paid_at=now,
+        paid_by=request.user,
+        month=now.month,
+        year=now.year,
+    )
+
+    # Notify the employee so it surfaces immediately in their portal.
+    try:
+        from notifications_app.models import Notification
+        Notification.objects.create(
+            recipient=employee,
+            title='Sales commission received',
+            message=f'You received a commission of PKR {amount:,.2f}'
+                    + (f' — {note}' if note else '') + '.',
+            link=reverse('dashboard:dashboard'),
+        )
+    except Exception:
+        pass
+
+    display_name = employee.get_full_name() or employee.username
+    messages.success(
+        request,
+        f'Commission of PKR {amount:,.2f} paid to {display_name}. '
+        f'1 sale recorded.'
+    )
+    return redirect('accounts:employee_list')
 
 
 @admin_required
@@ -357,11 +461,21 @@ def download_payslip_view(request, pk):
             month=payslip.month,
             year=payslip.year,
         )
+        commissions = SalesCommission.objects.filter(
+            employee=payslip.employee,
+            month=payslip.month,
+            year=payslip.year,
+        )
 
         earnings_rows = [['Earnings', 'Amount (PKR)']]
         earnings_rows.append(['Basic Salary', f'{payslip.basic_salary:,.2f}'])
         for bonus in bonuses:
             earnings_rows.append([bonus.title, f'{bonus.amount:,.2f}'])
+        for comm in commissions:
+            label = 'Sales Commission'
+            if comm.note:
+                label = f'Sales Commission ({comm.note})'
+            earnings_rows.append([label, f'{comm.amount:,.2f}'])
         earnings_rows.append(['Total Earnings', f'{payslip.basic_salary + payslip.total_allowances:,.2f}'])
 
         deduction_rows = [['Deductions', 'Amount (PKR)']]

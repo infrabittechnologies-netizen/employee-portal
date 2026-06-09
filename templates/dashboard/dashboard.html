@@ -362,44 +362,41 @@
     </div>
   </div>
 
-  <!-- Performance Badge -->
+  <!-- Sales Commission -->
   <div class="col-12 col-lg-4">
     <div class="card h-100 fade-in-up delay-3">
-      <div class="card-header d-flex align-items-center gap-2">
-        <i class="fas fa-star text-warning"></i>
-        <span>Performance</span>
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center gap-2">
+          <i class="fas fa-hand-holding-dollar text-success"></i>
+          <span>Sales Commission</span>
+        </div>
+        <span class="badge bg-success rounded-pill px-2 py-1 text-xs">{{ sales_count }} sale{{ sales_count|pluralize }}</span>
       </div>
-      <div class="card-body p-4 text-center">
-        {% if latest_review %}
-          <div class="mb-2">
-            {% for i in "12345" %}
-              <i class="fas fa-star {% if forloop.counter <= latest_review.rating %}text-warning{% else %}text-muted{% endif %} fa-lg"></i>
+      <div class="card-body p-4">
+        <div class="text-center mb-3">
+          <div class="text-xs text-muted text-uppercase">Total this month</div>
+          <div class="fw-bold text-success" style="font-size:1.6rem;">PKR {{ commission_total|floatformat:2 }}</div>
+          <div class="text-xs text-muted">{{ sales_count }} sale{{ sales_count|pluralize }} · added to your salary slip</div>
+        </div>
+        {% if current_month_commissions %}
+          <div class="list-group list-group-flush" style="max-height:220px;overflow-y:auto;">
+            {% for c in current_month_commissions %}
+            <div class="list-group-item px-0 py-2 d-flex justify-content-between align-items-start gap-2">
+              <div>
+                <div class="fw-semibold text-sm text-success">+ PKR {{ c.amount|floatformat:2 }}</div>
+                <div class="text-xs text-muted">
+                  <i class="far fa-clock me-1"></i>{{ c.paid_at|date:"d M Y, h:i A" }}
+                </div>
+                {% if c.note %}<div class="text-xs text-muted">{{ c.note }}</div>{% endif %}
+              </div>
+              <span class="badge bg-success-subtle text-success rounded-pill text-xs flex-shrink-0">Sale</span>
+            </div>
             {% endfor %}
           </div>
-          <div class="fw-bold mt-2" style="font-size:1.2rem;">{{ latest_review.rating_label }}</div>
-          <div class="text-muted text-sm mt-1">Score: <strong>{{ latest_review.total_score }}/100</strong></div>
-          <div class="text-xs text-muted mt-1">
-            {{ latest_review.review_period|capfirst }} &bull;
-            {{ latest_review.period_start|date:"M Y" }}
-          </div>
-          <hr />
-          <div class="row g-2 text-center">
-            <div class="col-6">
-              <div class="text-xs text-muted">Attendance</div>
-              <div class="fw-bold">{{ latest_review.attendance_score }}/20</div>
-            </div>
-            <div class="col-6">
-              <div class="text-xs text-muted">Productivity</div>
-              <div class="fw-bold">{{ latest_review.productivity_score }}/20</div>
-            </div>
-          </div>
-          <a href="{% url 'performance:my_performance' %}" class="btn btn-sm btn-outline-primary mt-3">
-            <i class="fas fa-chart-line me-1"></i>Full Report
-          </a>
         {% else %}
-          <div class="py-3 text-muted">
-            <i class="fas fa-chart-line fa-3x mb-3 opacity-25"></i>
-            <p class="text-sm mb-0">No performance review yet.</p>
+          <div class="py-3 text-center text-muted">
+            <i class="fas fa-hand-holding-dollar fa-3x mb-3 opacity-25"></i>
+            <p class="text-sm mb-0">No commissions yet this month.</p>
           </div>
         {% endif %}
       </div>
