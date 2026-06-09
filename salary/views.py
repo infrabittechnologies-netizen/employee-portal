@@ -300,6 +300,86 @@ def pay_commission_view(request, pk):
     return redirect('accounts:employee_list')
 
 
+def _recalc_payslip_for(employee, month, year):
+    """If a payslip already exists for this period, recompute its totals so
+    edits/removals of commissions (and other items) stay consistent."""
+    payslip = Payslip.objects.filter(
+        employee=employee, month=month, year=year
+    ).first()
+    if not payslip:
+        return
+
+    total_deductions_sum = sum(
+        SalaryDeduction.objects.filter(
+            employee=employee, month=month, year=year
+        ).values_list('amount', flat=True),
+        Decimal('0.00'),
+    )
+    total_bonuses_sum = sum(
+        SalaryBonus.objects.filter(
+            employee=employee, month=month, year=year
+        ).values_list('amount', flat=True),
+        Decimal('0.00'),
+    )
+    total_commissions_sum = sum(
+        SalesCommission.objects.filter(
+            employee=employee, month=month, year=year
+        ).values_list('amount', flat=True),
+        Decimal('0.00'),
+    )
+    total_allowances_sum = total_bonuses_sum + total_commissions_sum
+    payslip.total_allowances = total_allowances_sum
+    payslip.total_deductions = total_deductions_sum
+    payslip.net_salary = payslip.basic_salary + total_allowances_sum - total_deductions_sum
+    payslip.save(update_fields=['total_allowances', 'total_deductions', 'net_salary'])
+
+
+@admin_required
+@require_POST
+def edit_commission_view(request, pk):
+    """Admin updates a sales commission's amount and/or note."""
+    commission = get_object_or_404(SalesCommission, pk=pk)
+    employee = commission.employee
+
+    raw_amount = (request.POST.get('amount') or '').strip()
+    note = (request.POST.get('note') or '').strip()
+    try:
+        amount = Decimal(raw_amount)
+    except (InvalidOperation, ValueError):
+        amount = Decimal('0')
+
+    if amount <= 0:
+        messages.error(request, 'Please enter a valid commission amount.')
+        return redirect('accounts:employee_detail', pk=employee.pk)
+
+    commission.amount = amount
+    commission.note = note
+    commission.save(update_fields=['amount', 'note'])
+
+    # Keep any existing payslip for that period in sync.
+    _recalc_payslip_for(employee, commission.month, commission.year)
+
+    messages.success(request, f'Commission updated to PKR {amount:,.2f}.')
+    return redirect('accounts:employee_detail', pk=employee.pk)
+
+
+@admin_required
+@require_POST
+def delete_commission_view(request, pk):
+    """Admin removes a sales commission."""
+    commission = get_object_or_404(SalesCommission, pk=pk)
+    employee = commission.employee
+    month, year = commission.month, commission.year
+    amount = commission.amount
+    commission.delete()
+
+    # Keep any existing payslip for that period in sync.
+    _recalc_payslip_for(employee, month, year)
+
+    messages.success(request, f'Commission of PKR {amount:,.2f} removed.')
+    return redirect('accounts:employee_detail', pk=employee.pk)
+
+
 @admin_required
 def add_bonus_view(request):
     """Add a salary bonus for an employee."""

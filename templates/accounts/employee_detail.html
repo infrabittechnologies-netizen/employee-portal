@@ -236,6 +236,7 @@
                 <th>Date &amp; Time</th>
                 <th>Note</th>
                 <th class="text-end">Amount</th>
+                {% if request.user.is_admin %}<th class="text-center" style="width:110px;">Actions</th>{% endif %}
               </tr>
             </thead>
             <tbody>
@@ -244,10 +245,30 @@
                 <td class="text-sm">{{ c.paid_at|date:"d M Y, h:i A" }}</td>
                 <td class="text-sm text-muted">{{ c.note|default:"—" }}</td>
                 <td class="text-sm text-end text-success fw-medium">+ PKR {{ c.amount|floatformat:2 }}</td>
+                {% if request.user.is_admin %}
+                <td class="text-center">
+                  <div class="d-flex gap-1 justify-content-center">
+                    <button type="button" class="btn btn-icon btn-sm btn-outline-primary edit-commission-btn"
+                            title="Edit"
+                            data-id="{{ c.id }}"
+                            data-amount="{{ c.amount }}"
+                            data-note="{{ c.note }}">
+                      <i class="fas fa-pen"></i>
+                    </button>
+                    <button type="button" class="btn btn-icon btn-sm btn-outline-danger delete-commission-btn"
+                            title="Remove"
+                            data-id="{{ c.id }}"
+                            data-amount="{{ c.amount }}"
+                            data-date="{{ c.paid_at|date:'d M Y, h:i A' }}">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </div>
+                </td>
+                {% endif %}
               </tr>
               {% empty %}
               <tr>
-                <td colspan="3" class="text-center py-4 text-muted text-sm">No commissions paid this month.</td>
+                <td colspan="{% if request.user.is_admin %}4{% else %}3{% endif %}" class="text-center py-4 text-muted text-sm">No commissions paid this month.</td>
               </tr>
               {% endfor %}
             </tbody>
@@ -285,4 +306,104 @@
   </div>
 
 </div>
+
+{% if request.user.is_admin %}
+<!-- Edit Commission Modal -->
+<div class="modal fade" id="editCommissionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form method="post" id="editCommissionForm">
+      {% csrf_token %}
+      <div class="modal-content" style="border:none;border-radius:14px;overflow:hidden;">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title"><i class="fas fa-pen me-2"></i>Edit Commission</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body p-4">
+          <div class="mb-3">
+            <label class="form-label fw-medium text-sm">Amount (PKR)</label>
+            <input type="number" step="0.01" min="0.01" name="amount" id="editCommAmount"
+                   class="form-control" required>
+          </div>
+          <div class="mb-1">
+            <label class="form-label fw-medium text-sm">Note <span class="text-muted">(optional)</span></label>
+            <input type="text" name="note" id="editCommNote" maxlength="200" class="form-control">
+          </div>
+          <div class="alert alert-info text-xs mt-3 mb-0">
+            <i class="fas fa-info-circle me-1"></i>If a payslip already exists for this month, its net salary will be recalculated automatically.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>Save Changes</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Delete Commission Modal -->
+<div class="modal fade" id="deleteCommissionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form method="post" id="deleteCommissionForm">
+      {% csrf_token %}
+      <div class="modal-content" style="border:none;border-radius:14px;overflow:hidden;">
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title"><i class="fas fa-triangle-exclamation me-2"></i>Remove Commission</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body p-4">
+          <p class="mb-2">Are you sure you want to remove this commission?</p>
+          <div class="p-3 rounded-3" style="background:#fef2f2;border:1px solid #fecaca;">
+            <div class="fw-bold text-danger" id="delCommAmount"></div>
+            <div class="text-xs text-muted" id="delCommDate"></div>
+          </div>
+          <div class="alert alert-warning text-xs mt-3 mb-0">
+            <i class="fas fa-info-circle me-1"></i>This will reduce the employee's sales count and recalculate any existing payslip for that month. This cannot be undone.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-danger"><i class="fas fa-trash me-1"></i>Remove</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if request.user.is_admin %}
+<script>
+(function () {
+  const editUrlTpl = "{% url 'salary:edit_commission' 0 %}";
+  const delUrlTpl  = "{% url 'salary:delete_commission' 0 %}";
+
+  const editModalEl = document.getElementById('editCommissionModal');
+  const delModalEl  = document.getElementById('deleteCommissionModal');
+  const editModal = editModalEl ? new bootstrap.Modal(editModalEl) : null;
+  const delModal  = delModalEl ? new bootstrap.Modal(delModalEl) : null;
+
+  document.querySelectorAll('.edit-commission-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const id = btn.dataset.id;
+      document.getElementById('editCommissionForm').action = editUrlTpl.replace('/0/', '/' + id + '/');
+      document.getElementById('editCommAmount').value = btn.dataset.amount;
+      document.getElementById('editCommNote').value = btn.dataset.note || '';
+      editModal && editModal.show();
+    });
+  });
+
+  document.querySelectorAll('.delete-commission-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const id = btn.dataset.id;
+      document.getElementById('deleteCommissionForm').action = delUrlTpl.replace('/0/', '/' + id + '/');
+      document.getElementById('delCommAmount').textContent = 'PKR ' + btn.dataset.amount;
+      document.getElementById('delCommDate').textContent = btn.dataset.date || '';
+      delModal && delModal.show();
+    });
+  });
+})();
+</script>
+{% endif %}
 {% endblock %}
