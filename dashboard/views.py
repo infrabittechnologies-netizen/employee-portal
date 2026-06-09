@@ -9,6 +9,8 @@ from holidays.models import Holiday, Announcement
 from notifications_app.models import Notification
 from accounts.models import CustomUser, Department
 from attendance.schedule import get_break_status, get_post_break_status
+from salary.deductions import month_deduction_summary
+from decimal import Decimal
 import datetime
 
 
@@ -51,10 +53,44 @@ def dashboard_view(request):
             employee=user, status='approved', from_date__year=current_year
         )
     )
-    current_month_deductions = SalaryDeduction.objects.filter(
-        employee=user, month=today.month, year=today.year
+    # Manual deductions the admin entered by hand (stored rows).
+    manual_deductions = SalaryDeduction.objects.filter(
+        employee=user, month=today.month, year=today.year, source='manual'
     ).order_by('-date')
-    total_deductions = sum(d.amount for d in current_month_deductions)
+    manual_deductions_total = sum((d.amount for d in manual_deductions), Decimal('0.00'))
+
+    # Attendance deductions computed LIVE from actual attendance so the figure
+    # updates day-by-day (late / early-out / break overstay).
+    attendance_summary = month_deduction_summary(user, today.year, today.month)
+    auto_deductions_total = attendance_summary['total']
+
+    # Unified list (manual + live attendance) so the card total matches.
+    deduction_rows = []
+    for d in manual_deductions:
+        deduction_rows.append({
+            'date': d.date,
+            'reason': d.get_reason_display(),
+            'amount': d.amount,
+            'description': d.description,
+            'auto': False,
+        })
+    for it in attendance_summary['items']:
+        deduction_rows.append({
+            'date': it['date'],
+            'reason': it['reason'].replace('_', ' ').title(),
+            'amount': it['amount'],
+            'description': it['description'],
+            'auto': True,
+        })
+    deduction_rows.sort(key=lambda r: r['date'], reverse=True)
+
+    total_deductions = manual_deductions_total + auto_deductions_total
+
+    # Base salary remaining after the deductions accrued so far this month.
+    basic_salary = Decimal(user.basic_salary or 0)
+    remaining_base = basic_salary - total_deductions
+    if remaining_base < Decimal('0.00'):
+        remaining_base = Decimal('0.00')
 
     # Sales commissions this month — each record is one sale.
     current_month_commissions = SalesCommission.objects.filter(
@@ -94,8 +130,13 @@ def dashboard_view(request):
         'leave_balances': leave_balances,
         'approved_leaves_this_year': approved_leaves_this_year,
         'pending_leaves': pending_leaves,
-        'current_month_deductions': current_month_deductions,
+        'current_month_deductions': deduction_rows,
+        'deduction_rows': deduction_rows,
         'total_deductions': total_deductions,
+        'manual_deductions_total': manual_deductions_total,
+        'auto_deductions_total': auto_deductions_total,
+        'basic_salary': basic_salary,
+        'remaining_base': remaining_base,
         'current_month_commissions': current_month_commissions,
         'commission_total': commission_total,
         'sales_count': sales_count,

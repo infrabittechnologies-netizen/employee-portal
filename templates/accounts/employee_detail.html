@@ -293,9 +293,49 @@
         </button>
         {% endif %}
       </div>
-      <div class="card-body d-flex justify-content-between align-items-center">
-        <span class="text-muted text-sm">Monthly basic salary</span>
-        <span class="fw-bold fs-5">PKR {{ basic_salary|floatformat:2 }}</span>
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center">
+          <span class="text-muted text-sm">Monthly basic salary</span>
+          <span class="fw-bold fs-5">PKR {{ basic_salary|floatformat:2 }}</span>
+        </div>
+
+        {% if today_deduction %}
+        <div class="alert alert-warning d-flex align-items-start gap-2 mt-3 mb-0 py-2 px-3">
+          <i class="fas fa-clock mt-1"></i>
+          <div class="text-sm">
+            <strong>Today's deduction: - PKR {{ today_deduction|floatformat:2 }}</strong>
+            {% if today_deduction_desc %}<div class="text-muted text-xs">{{ today_deduction_desc }}</div>{% endif %}
+          </div>
+        </div>
+        {% endif %}
+
+        <hr class="my-3">
+        <div class="d-flex justify-content-between align-items-center text-sm mb-1">
+          <span class="text-muted">Deductions so far this period</span>
+          <span class="text-danger fw-medium">- PKR {{ deductions_total|floatformat:2 }}</span>
+        </div>
+        {% if auto_deductions_total %}
+        <div class="d-flex justify-content-between align-items-center text-xs text-muted ps-3 mb-1">
+          <span>• Attendance (live)</span>
+          <span>- PKR {{ auto_deductions_total|floatformat:2 }}</span>
+        </div>
+        {% endif %}
+        {% if manual_deductions_total %}
+        <div class="d-flex justify-content-between align-items-center text-xs text-muted ps-3 mb-1">
+          <span>• Manual</span>
+          <span>- PKR {{ manual_deductions_total|floatformat:2 }}</span>
+        </div>
+        {% endif %}
+
+        <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+          <span class="fw-medium">Base salary remaining now</span>
+          <span class="fw-bold fs-4 {% if remaining_base < basic_salary %}text-danger{% else %}text-success{% endif %}">
+            PKR {{ remaining_base|floatformat:2 }}
+          </span>
+        </div>
+        <div class="text-xs text-muted text-end mt-1">
+          Updates daily as attendance deductions accrue.
+        </div>
       </div>
     </div>
 
@@ -377,16 +417,11 @@
                 <td class="text-sm">{{ d.get_reason_display }}</td>
                 <td class="text-sm text-muted">{{ d.description|default:"—" }}</td>
                 <td class="text-sm">
-                  {% if d.source == 'attendance' %}
-                  <span class="badge bg-secondary-subtle text-secondary text-xs">Auto</span>
-                  {% else %}
                   <span class="badge bg-info-subtle text-info text-xs">Manual</span>
-                  {% endif %}
                 </td>
                 <td class="text-sm text-end text-danger fw-medium">- PKR {{ d.amount|floatformat:2 }}</td>
                 {% if request.user.is_admin %}
                 <td class="text-center">
-                  {% if d.source == 'manual' %}
                   <div class="d-flex gap-1 justify-content-center">
                     <button type="button" class="btn btn-icon btn-sm btn-outline-primary edit-ded-btn"
                             title="Edit" data-id="{{ d.id }}" data-reason="{{ d.reason }}" data-desc="{{ d.description }}" data-amount="{{ d.amount }}">
@@ -397,15 +432,30 @@
                       <i class="fas fa-trash"></i>
                     </button>
                   </div>
-                  {% else %}
-                  <span class="text-xs text-muted" title="Auto deductions are recalculated from attendance">—</span>
-                  {% endif %}
                 </td>
                 {% endif %}
               </tr>
-              {% empty %}
-              <tr><td colspan="{% if request.user.is_admin %}5{% else %}4{% endif %}" class="text-center py-4 text-muted text-sm">No deductions this period.</td></tr>
               {% endfor %}
+
+              {% for it in attendance_items %}
+              <tr>
+                <td class="text-sm">{{ it.date|date:"d M" }} — {{ it.reason|capfirst }}</td>
+                <td class="text-sm text-muted">{{ it.description|default:"—" }}</td>
+                <td class="text-sm">
+                  <span class="badge bg-secondary-subtle text-secondary text-xs">Auto</span>
+                </td>
+                <td class="text-sm text-end text-danger fw-medium">- PKR {{ it.amount|floatformat:2 }}</td>
+                {% if request.user.is_admin %}
+                <td class="text-center">
+                  <span class="text-xs text-muted" title="Auto deductions are computed live from attendance">—</span>
+                </td>
+                {% endif %}
+              </tr>
+              {% endfor %}
+
+              {% if not deductions and not attendance_items %}
+              <tr><td colspan="{% if request.user.is_admin %}5{% else %}4{% endif %}" class="text-center py-4 text-muted text-sm">No deductions this period.</td></tr>
+              {% endif %}
             </tbody>
           </table>
         </div>

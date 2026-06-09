@@ -302,6 +302,7 @@ def employee_detail_view(request, pk):
     from salary.models import SalesCommission, SalaryDeduction, SalaryBonus, Payslip
     from attendance.models import Attendance
     from leaves.models import LeaveBalance
+    from salary.deductions import month_deduction_summary
 
     _now = _tz.now()
     try:
@@ -319,14 +320,19 @@ def employee_detail_view(request, pk):
     ).order_by('-paid_at')
     commission_total = sum((c.amount for c in employee_commissions), Decimal('0.00'))
 
+    # Manual deductions are stored rows the admin entered by hand.
     deductions = SalaryDeduction.objects.filter(
-        employee=employee, month=sal_month, year=sal_year
-    ).order_by('source', '-date')
-    deductions_total = sum((d.amount for d in deductions), Decimal('0.00'))
-    manual_deductions_total = sum(
-        (d.amount for d in deductions if d.source == 'manual'), Decimal('0.00')
-    )
-    auto_deductions_total = deductions_total - manual_deductions_total
+        employee=employee, month=sal_month, year=sal_year, source='manual'
+    ).order_by('-date')
+    manual_deductions_total = sum((d.amount for d in deductions), Decimal('0.00'))
+
+    # Attendance ("auto") deductions are computed LIVE from the actual
+    # attendance records so the figure updates day-by-day as the employee is
+    # late / leaves early / overstays a break — even before any payslip is run.
+    attendance_summary = month_deduction_summary(employee, sal_year, sal_month)
+    auto_deductions_total = attendance_summary['total']
+
+    deductions_total = manual_deductions_total + auto_deductions_total
 
     bonuses = SalaryBonus.objects.filter(
         employee=employee, month=sal_month, year=sal_year
@@ -335,6 +341,23 @@ def employee_detail_view(request, pk):
 
     gross = basic_salary + bonuses_total + commission_total
     net_salary = gross - deductions_total
+
+    # "Remaining base" = base salary after the deductions accrued so far this
+    # month. Shown right on the Base Salary card ("ab itni salary reh gayi").
+    remaining_base = basic_salary - deductions_total
+    if remaining_base < Decimal('0.00'):
+        remaining_base = Decimal('0.00')
+
+    # Today's live deduction (if any) for the daily-basis callout.
+    _today = _tz.localdate()
+    today_deduction = Decimal('0.00')
+    today_deduction_desc = ''
+    if sal_month == _today.month and sal_year == _today.year:
+        for _it in attendance_summary['items']:
+            if _it['date'] == _today:
+                today_deduction = _it['amount']
+                today_deduction_desc = _it['description']
+                break
 
     existing_payslip = Payslip.objects.filter(
         employee=employee, month=sal_month, year=sal_year
@@ -368,6 +391,11 @@ def employee_detail_view(request, pk):
         'deductions_total': deductions_total,
         'manual_deductions_total': manual_deductions_total,
         'auto_deductions_total': auto_deductions_total,
+        'attendance_summary': attendance_summary,
+        'attendance_items': attendance_summary['items'],
+        'remaining_base': remaining_base,
+        'today_deduction': today_deduction,
+        'today_deduction_desc': today_deduction_desc,
         'bonuses': bonuses,
         'bonuses_total': bonuses_total,
         'gross': gross,
