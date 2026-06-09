@@ -88,6 +88,18 @@
               </div>
             </div>
 
+            <!-- Early resume option: appears in the final minutes of the break,
+                 WITHOUT shortening the break itself. -->
+            <div id="earlyRestartWrap" class="mt-3"{% if not break_info.can_restart_early %} style="display:none;"{% endif %}>
+              <button id="restartWorkBtn"
+                      class="att-action-btn att-restart"
+                      onclick="handleRestartWork()">
+                <i class="fas fa-play att-btn-icon"></i>
+                <span>Resume Work Early</span>
+              </button>
+              <div class="att-checked-in-note">You may resume up to {{ break_info.early_restart_minutes }} min before the break ends.</div>
+            </div>
+
           {% elif post_break_info %}
             <!-- ── RESTART WORK STATE ── -->
             <div class="att-break-badge" style="background:rgba(99,102,241,.12);color:#818cf8;border-color:rgba(99,102,241,.28);">
@@ -480,9 +492,10 @@
 <script>
 (function () {
   var remaining   = {{ break_info.remaining_secs }};
-  var durationMin = {{ break_info.duration_min }};
+  var earlyWindow = {{ break_info.early_restart_minutes }} * 60;  // seconds before end the resume option opens
   var countdownEl = document.getElementById('breakCountdown');
   var fillEl      = document.getElementById('breakProgressFill');
+  var earlyWrap   = document.getElementById('earlyRestartWrap');
 
   function fmt(secs) {
     var m = Math.floor(secs / 60);
@@ -492,6 +505,7 @@
 
   function tick() {
     if (remaining <= 0) {
+      // Break officially over → reload into the post-break "Restart Work" state.
       window.location.reload();
       return;
     }
@@ -499,6 +513,8 @@
     var totalSecs = {{ break_info.countdown_total_secs }};
     var pct = Math.min(100, Math.round((totalSecs - remaining) * 100 / totalSecs));
     if (fillEl) fillEl.style.width = pct + '%';
+    // Reveal the early-resume option for the final minutes — without ending the break.
+    if (earlyWrap && remaining <= earlyWindow) earlyWrap.style.display = '';
     remaining--;
   }
 

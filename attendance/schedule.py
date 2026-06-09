@@ -139,56 +139,74 @@ def is_late_checkin(check_in_aware) -> bool:
     return bool(start and ci_local.time() > start)
 
 
-def get_break_status(now_aware=None) -> dict | None:
+def get_break_status(now_aware=None, restarted_break_numbers=None) -> dict | None:
     """
     Return a dict describing the current break if PKT time falls within a break
     window, otherwise return None.
 
+    The break always runs for its FULL duration (b_start … b_end). The early
+    restart option simply *becomes available* in the final
+    ``BREAK_EARLY_RESTART_MINUTES`` minutes (flag ``can_restart_early``) — it
+    does NOT shorten the break or its countdown.
+
+    ``restarted_break_numbers`` – break numbers (1-indexed) the employee has
+    already resumed today; such a break is no longer treated as "on break"
+    (so resuming early immediately returns them to the working state).
+
     Keys:
-        break_number    – 1 or 2
-        total_breaks    – total number of breaks in the shift (2)
-        start / end     – time objects
-        duration_min    – total break length in minutes
-        elapsed_min     – minutes already elapsed
-        remaining_secs  – seconds left in this break
-        progress_pct    – 0-100 (how much of the break has passed)
+        break_number      – 1 or 2
+        total_breaks      – total number of breaks in the shift (2)
+        start / end       – time objects
+        duration_min      – total break length in minutes
+        elapsed_min       – minutes already elapsed
+        remaining_secs    – seconds left until the break officially ends
+        restart_opens     – time the early-restart option becomes available
+        can_restart_early – True during the final early-restart window
+        progress_pct      – 0-100 (how much of the break has passed)
     """
     from django.utils import timezone as dj_tz
     if now_aware is None:
         now_aware = dj_tz.now()
+    if restarted_break_numbers is None:
+        restarted_break_numbers = set()
 
     local_now = dj_tz.localtime(now_aware)
     local_t   = local_now.time()
 
     for idx, (b_start, b_end) in enumerate(BREAKS):
-        restart_opens = break_restart_opens(b_end)
-        # Once the early-restart window opens we no longer treat the employee as
-        # "on break" — the Restart Work option (post-break state) takes over so
-        # they can resume a few minutes early.
-        if b_start <= local_t < restart_opens:
-            anchor      = local_now.date()
-            start_dt    = datetime.datetime.combine(anchor, b_start)
-            end_dt      = datetime.datetime.combine(anchor, b_end)
-            ropen_dt    = datetime.datetime.combine(anchor, restart_opens)
-            now_dt      = datetime.datetime.combine(anchor, local_t)
+        break_num = idx + 1
 
-            # Real break length (for display) vs the countdown target (restart open).
-            duration_s  = int((end_dt   - start_dt).total_seconds())
-            countdown_s = int((ropen_dt - start_dt).total_seconds())
-            elapsed_s   = int((now_dt   - start_dt).total_seconds())
-            remaining_s = max(0, countdown_s - elapsed_s)
+        # If the employee already resumed this break early, they are no longer
+        # on break — fall through to the normal working/checkout state.
+        if break_num in restarted_break_numbers:
+            continue
+
+        # The break runs for its FULL window — the countdown targets the real
+        # break end (b_end), so the displayed/deducted break time is unchanged.
+        if b_start <= local_t < b_end:
+            anchor        = local_now.date()
+            start_dt      = datetime.datetime.combine(anchor, b_start)
+            end_dt        = datetime.datetime.combine(anchor, b_end)
+            now_dt        = datetime.datetime.combine(anchor, local_t)
+            restart_opens = break_restart_opens(b_end)
+
+            duration_s  = int((end_dt - start_dt).total_seconds())
+            elapsed_s   = int((now_dt - start_dt).total_seconds())
+            remaining_s = max(0, duration_s - elapsed_s)
 
             return {
-                'break_number':         idx + 1,
-                'total_breaks':         len(BREAKS),
-                'start':                b_start,
-                'end':                  b_end,
-                'duration_min':         duration_s // 60,
-                'elapsed_min':          elapsed_s  // 60,
-                'remaining_secs':       remaining_s,
-                'countdown_total_secs': countdown_s,
+                'break_number':          break_num,
+                'total_breaks':          len(BREAKS),
+                'start':                 b_start,
+                'end':                   b_end,
+                'duration_min':          duration_s // 60,
+                'elapsed_min':           elapsed_s  // 60,
+                'remaining_secs':        remaining_s,
+                'countdown_total_secs':  duration_s,
+                'restart_opens':         restart_opens,
                 'early_restart_minutes': BREAK_EARLY_RESTART_MINUTES,
-                'progress_pct':         min(100, int(elapsed_s * 100 / countdown_s)) if countdown_s > 0 else 100,
+                'can_restart_early':     local_t >= restart_opens,
+                'progress_pct':          min(100, int(elapsed_s * 100 / duration_s)) if duration_s > 0 else 100,
             }
     return None
 

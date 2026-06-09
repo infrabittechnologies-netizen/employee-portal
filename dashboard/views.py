@@ -30,14 +30,18 @@ def dashboard_view(request):
         today_attendance.check_in and
         not today_attendance.check_out
     )
-    break_info = get_break_status() if _checked_in_active else None
-
-    # Detect if a break just ended and employee hasn't restarted yet
+    # Breaks already resumed early today (so they no longer show as "on break").
     restarted_breaks = set()
     if _checked_in_active:
         restarted_breaks = set(
             today_attendance.break_restarts.values_list('break_number', flat=True)
         )
+    break_info = (
+        get_break_status(restarted_break_numbers=restarted_breaks)
+        if _checked_in_active else None
+    )
+
+    # Detect if a break just ended and employee hasn't restarted yet
     post_break_info = (
         get_post_break_status(restarted_break_numbers=restarted_breaks)
         if _checked_in_active and not break_info

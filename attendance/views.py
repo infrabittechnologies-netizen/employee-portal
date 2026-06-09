@@ -426,12 +426,15 @@ def my_attendance_view(request):
     _checked_in_active = bool(
         today_record and today_record.check_in and not today_record.check_out
     )
-    break_info = get_break_status() if _checked_in_active else None
     restarted_breaks = set()
     if _checked_in_active:
         restarted_breaks = set(
             today_record.break_restarts.values_list('break_number', flat=True)
         )
+    break_info = (
+        get_break_status(restarted_break_numbers=restarted_breaks)
+        if _checked_in_active else None
+    )
     post_break_info = (
         get_post_break_status(restarted_break_numbers=restarted_breaks)
         if _checked_in_active and not break_info
