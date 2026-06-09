@@ -217,15 +217,213 @@
 
   <!-- Salary Tab -->
   <div class="tab-pane fade" id="salary">
-    <!-- Sales Commission (current month) -->
+
+    <!-- Period selector -->
+    <div class="card mb-4">
+      <div class="card-body py-3">
+        <form method="get" id="salaryPeriodForm" class="row g-2 align-items-end">
+          <div class="col-auto">
+            <label class="form-label text-xs text-muted mb-1">Month</label>
+            <select name="m" class="form-select form-select-sm" onchange="document.getElementById('salaryPeriodForm').submit();">
+              {% for num, name in month_names %}
+              <option value="{{ num }}" {% if num == sal_month %}selected{% endif %}>{{ name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-auto">
+            <label class="form-label text-xs text-muted mb-1">Year</label>
+            <select name="y" class="form-select form-select-sm" onchange="document.getElementById('salaryPeriodForm').submit();">
+              {% for yr in year_choices %}
+              <option value="{{ yr }}" {% if yr == sal_year %}selected{% endif %}>{{ yr }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-auto">
+            <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-rotate me-1"></i>Show</button>
+          </div>
+          <div class="col text-end">
+            {% if existing_payslip %}
+            <span class="badge {% if existing_payslip.status == 'paid' %}bg-success{% else %}bg-warning text-dark{% endif %} px-3 py-2">
+              Payslip: {{ existing_payslip.get_status_display }}
+            </span>
+            <a href="{% url 'salary:payslip_detail' existing_payslip.pk %}" class="btn btn-sm btn-outline-secondary ms-1">View Payslip</a>
+            {% else %}
+            <span class="badge bg-light text-muted px-3 py-2">No payslip generated yet</span>
+            {% endif %}
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Summary tiles -->
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-lg-3">
+        <div class="card text-center p-3 h-100">
+          <div class="text-xs text-muted mb-1">Base Salary</div>
+          <div class="fw-bold" style="font-size:1.15rem;color:#1e3a8a;">PKR {{ basic_salary|floatformat:0 }}</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="card text-center p-3 h-100">
+          <div class="text-xs text-muted mb-1">Bonuses + Commission</div>
+          <div class="fw-bold text-success" style="font-size:1.15rem;">+ PKR {{ bonuses_total|add:commission_total|floatformat:0 }}</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="card text-center p-3 h-100">
+          <div class="text-xs text-muted mb-1">Deductions</div>
+          <div class="fw-bold text-danger" style="font-size:1.15rem;">- PKR {{ deductions_total|floatformat:0 }}</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="card text-center p-3 h-100" style="background:#f0fdf4;">
+          <div class="text-xs text-muted mb-1">Net (Estimated)</div>
+          <div class="fw-bold" style="font-size:1.15rem;color:#14532d;">PKR {{ net_salary|floatformat:0 }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Base Salary -->
     <div class="card mb-4">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <div>
-          <i class="fas fa-hand-holding-dollar text-success me-2"></i>Sales Commission — This Month
+        <div><i class="fas fa-wallet text-primary me-2"></i>Base Salary</div>
+        {% if request.user.is_admin %}
+        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#baseSalaryModal">
+          <i class="fas fa-pen me-1"></i>Adjust
+        </button>
+        {% endif %}
+      </div>
+      <div class="card-body d-flex justify-content-between align-items-center">
+        <span class="text-muted text-sm">Monthly basic salary</span>
+        <span class="fw-bold fs-5">PKR {{ basic_salary|floatformat:2 }}</span>
+      </div>
+    </div>
+
+    <!-- Bonuses -->
+    <div class="card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <div><i class="fas fa-gift text-success me-2"></i>Bonuses &amp; Allowances
+          <span class="text-muted text-xs ms-1">— {{ month_names|length|default:'' }}{% for num, name in month_names %}{% if num == sal_month %}{{ name }}{% endif %}{% endfor %} {{ sal_year }}</span>
         </div>
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge bg-success px-3 py-2">+ PKR {{ bonuses_total|floatformat:2 }}</span>
+          {% if request.user.is_admin %}
+          <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addBonusModal">
+            <i class="fas fa-plus me-1"></i>Add
+          </button>
+          {% endif %}
+        </div>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table mb-0">
+            <thead>
+              <tr><th>Title</th><th>Date</th><th class="text-end">Amount</th>{% if request.user.is_admin %}<th class="text-center" style="width:110px;">Actions</th>{% endif %}</tr>
+            </thead>
+            <tbody>
+              {% for b in bonuses %}
+              <tr>
+                <td class="text-sm">{{ b.title }}</td>
+                <td class="text-sm text-muted">{{ b.date|date:"d M Y" }}</td>
+                <td class="text-sm text-end text-success fw-medium">+ PKR {{ b.amount|floatformat:2 }}</td>
+                {% if request.user.is_admin %}
+                <td class="text-center">
+                  <div class="d-flex gap-1 justify-content-center">
+                    <button type="button" class="btn btn-icon btn-sm btn-outline-primary edit-bonus-btn"
+                            title="Edit" data-id="{{ b.id }}" data-title="{{ b.title }}" data-amount="{{ b.amount }}">
+                      <i class="fas fa-pen"></i>
+                    </button>
+                    <button type="button" class="btn btn-icon btn-sm btn-outline-danger del-bonus-btn"
+                            title="Remove" data-id="{{ b.id }}" data-title="{{ b.title }}" data-amount="{{ b.amount }}">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </div>
+                </td>
+                {% endif %}
+              </tr>
+              {% empty %}
+              <tr><td colspan="{% if request.user.is_admin %}4{% else %}3{% endif %}" class="text-center py-4 text-muted text-sm">No bonuses this period.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Deductions -->
+    <div class="card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <div><i class="fas fa-minus-circle text-danger me-2"></i>Deductions
+          {% if auto_deductions_total %}<span class="text-muted text-xs ms-1">(incl. PKR {{ auto_deductions_total|floatformat:2 }} auto-attendance)</span>{% endif %}
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge bg-danger px-3 py-2">- PKR {{ deductions_total|floatformat:2 }}</span>
+          {% if request.user.is_admin %}
+          <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#addDeductionModal">
+            <i class="fas fa-plus me-1"></i>Add
+          </button>
+          {% endif %}
+        </div>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table mb-0">
+            <thead>
+              <tr><th>Reason</th><th>Description</th><th>Type</th><th class="text-end">Amount</th>{% if request.user.is_admin %}<th class="text-center" style="width:110px;">Actions</th>{% endif %}</tr>
+            </thead>
+            <tbody>
+              {% for d in deductions %}
+              <tr>
+                <td class="text-sm">{{ d.get_reason_display }}</td>
+                <td class="text-sm text-muted">{{ d.description|default:"—" }}</td>
+                <td class="text-sm">
+                  {% if d.source == 'attendance' %}
+                  <span class="badge bg-secondary-subtle text-secondary text-xs">Auto</span>
+                  {% else %}
+                  <span class="badge bg-info-subtle text-info text-xs">Manual</span>
+                  {% endif %}
+                </td>
+                <td class="text-sm text-end text-danger fw-medium">- PKR {{ d.amount|floatformat:2 }}</td>
+                {% if request.user.is_admin %}
+                <td class="text-center">
+                  {% if d.source == 'manual' %}
+                  <div class="d-flex gap-1 justify-content-center">
+                    <button type="button" class="btn btn-icon btn-sm btn-outline-primary edit-ded-btn"
+                            title="Edit" data-id="{{ d.id }}" data-reason="{{ d.reason }}" data-desc="{{ d.description }}" data-amount="{{ d.amount }}">
+                      <i class="fas fa-pen"></i>
+                    </button>
+                    <button type="button" class="btn btn-icon btn-sm btn-outline-danger del-ded-btn"
+                            title="Remove" data-id="{{ d.id }}" data-amount="{{ d.amount }}">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </div>
+                  {% else %}
+                  <span class="text-xs text-muted" title="Auto deductions are recalculated from attendance">—</span>
+                  {% endif %}
+                </td>
+                {% endif %}
+              </tr>
+              {% empty %}
+              <tr><td colspan="{% if request.user.is_admin %}5{% else %}4{% endif %}" class="text-center py-4 text-muted text-sm">No deductions this period.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sales Commission -->
+    <div class="card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <div><i class="fas fa-hand-holding-dollar text-success me-2"></i>Sales Commission</div>
         <div class="d-flex align-items-center gap-2">
           <span class="badge bg-primary px-3 py-2">{{ commission_sales_count }} sale{{ commission_sales_count|pluralize }}</span>
           <span class="badge bg-success px-3 py-2">+ PKR {{ commission_total|floatformat:2 }}</span>
+          {% if request.user.is_admin and not employee.is_superuser %}
+          <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addCommissionModal">
+            <i class="fas fa-plus me-1"></i>Pay
+          </button>
+          {% endif %}
         </div>
       </div>
       <div class="card-body p-0">
@@ -268,7 +466,7 @@
               </tr>
               {% empty %}
               <tr>
-                <td colspan="{% if request.user.is_admin %}4{% else %}3{% endif %}" class="text-center py-4 text-muted text-sm">No commissions paid this month.</td>
+                <td colspan="{% if request.user.is_admin %}4{% else %}3{% endif %}" class="text-center py-4 text-muted text-sm">No commissions paid this period.</td>
               </tr>
               {% endfor %}
             </tbody>
@@ -277,17 +475,14 @@
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-body text-center py-5 text-muted">
-        <i class="fas fa-money-bill-wave fa-3x mb-3 opacity-25"></i>
-        <p class="mb-2">Salary details are managed separately.</p>
-        {% if request.user.is_admin %}
-        <a href="{% url 'salary:salary_report' %}?employee={{ employee.pk }}" class="btn btn-sm btn-outline-primary">
-          View Payslips
-        </a>
-        {% endif %}
-      </div>
+    {% if request.user.is_admin %}
+    <div class="text-end">
+      <a href="{% url 'salary:salary_report' %}?employee={{ employee.pk }}&month={{ sal_month }}&year={{ sal_year }}"
+         class="btn btn-sm btn-outline-primary">
+        <i class="fas fa-file-invoice-dollar me-1"></i>Go to Payslip / Salary Report
+      </a>
     </div>
+    {% endif %}
   </div>
 
   <!-- Performance Tab -->
@@ -369,6 +564,256 @@
     </form>
   </div>
 </div>
+
+<!-- Base Salary Modal -->
+<div class="modal fade" id="baseSalaryModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form method="post" action="{% url 'salary:update_base_salary' employee.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="month" value="{{ sal_month }}">
+      <input type="hidden" name="year" value="{{ sal_year }}">
+      <div class="modal-content" style="border:none;border-radius:14px;overflow:hidden;">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title"><i class="fas fa-wallet me-2"></i>Adjust Base Salary</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-4">
+          <label class="form-label fw-medium text-sm">Monthly Base Salary (PKR)</label>
+          <input type="number" step="0.01" min="0" name="basic_salary" class="form-control" value="{{ basic_salary|stringformat:'.2f' }}" required>
+          <div class="alert alert-info text-xs mt-3 mb-0">
+            <i class="fas fa-info-circle me-1"></i>If a payslip exists for the selected period, it will be updated and net salary recalculated.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>Save</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Add Bonus Modal -->
+<div class="modal fade" id="addBonusModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form method="post" action="{% url 'salary:emp_add_bonus' employee.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="month" value="{{ sal_month }}">
+      <input type="hidden" name="year" value="{{ sal_year }}">
+      <div class="modal-content" style="border:none;border-radius:14px;overflow:hidden;">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title"><i class="fas fa-gift me-2"></i>Add Bonus / Allowance</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-4">
+          <div class="mb-3">
+            <label class="form-label fw-medium text-sm">Title</label>
+            <input type="text" name="title" maxlength="100" class="form-control" placeholder="e.g. Performance Bonus, HRA" required>
+          </div>
+          <div class="mb-1">
+            <label class="form-label fw-medium text-sm">Amount (PKR)</label>
+            <input type="number" step="0.01" min="0.01" name="amount" class="form-control" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-success"><i class="fas fa-plus me-1"></i>Add Bonus</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Bonus Modal -->
+<div class="modal fade" id="editBonusModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form method="post" id="editBonusForm">
+      {% csrf_token %}
+      <div class="modal-content" style="border:none;border-radius:14px;overflow:hidden;">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title"><i class="fas fa-pen me-2"></i>Edit Bonus</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-4">
+          <div class="mb-3">
+            <label class="form-label fw-medium text-sm">Title</label>
+            <input type="text" name="title" id="editBonusTitle" maxlength="100" class="form-control" required>
+          </div>
+          <div class="mb-1">
+            <label class="form-label fw-medium text-sm">Amount (PKR)</label>
+            <input type="number" step="0.01" min="0.01" name="amount" id="editBonusAmount" class="form-control" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>Save Changes</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Delete Bonus Modal -->
+<div class="modal fade" id="delBonusModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form method="post" id="delBonusForm">
+      {% csrf_token %}
+      <div class="modal-content" style="border:none;border-radius:14px;overflow:hidden;">
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title"><i class="fas fa-triangle-exclamation me-2"></i>Remove Bonus</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-4">
+          <p class="mb-2">Remove this bonus?</p>
+          <div class="p-3 rounded-3" style="background:#fef2f2;border:1px solid #fecaca;">
+            <div class="fw-bold" id="delBonusTitle"></div>
+            <div class="text-danger" id="delBonusAmount"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-danger"><i class="fas fa-trash me-1"></i>Remove</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Add Deduction Modal -->
+<div class="modal fade" id="addDeductionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form method="post" action="{% url 'salary:emp_add_deduction' employee.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="month" value="{{ sal_month }}">
+      <input type="hidden" name="year" value="{{ sal_year }}">
+      <div class="modal-content" style="border:none;border-radius:14px;overflow:hidden;">
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title"><i class="fas fa-minus-circle me-2"></i>Add Deduction</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-4">
+          <div class="mb-3">
+            <label class="form-label fw-medium text-sm">Reason</label>
+            <select name="reason" class="form-select">
+              {% for val, label in deduction_reasons %}
+              <option value="{{ val }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-medium text-sm">Description <span class="text-muted">(optional)</span></label>
+            <input type="text" name="description" class="form-control" placeholder="e.g. Loan installment">
+          </div>
+          <div class="mb-1">
+            <label class="form-label fw-medium text-sm">Amount (PKR)</label>
+            <input type="number" step="0.01" min="0.01" name="amount" class="form-control" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-danger"><i class="fas fa-plus me-1"></i>Add Deduction</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Deduction Modal -->
+<div class="modal fade" id="editDeductionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form method="post" id="editDeductionForm">
+      {% csrf_token %}
+      <div class="modal-content" style="border:none;border-radius:14px;overflow:hidden;">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title"><i class="fas fa-pen me-2"></i>Edit Deduction</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-4">
+          <div class="mb-3">
+            <label class="form-label fw-medium text-sm">Reason</label>
+            <select name="reason" id="editDedReason" class="form-select">
+              {% for val, label in deduction_reasons %}
+              <option value="{{ val }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-medium text-sm">Description</label>
+            <input type="text" name="description" id="editDedDesc" class="form-control">
+          </div>
+          <div class="mb-1">
+            <label class="form-label fw-medium text-sm">Amount (PKR)</label>
+            <input type="number" step="0.01" min="0.01" name="amount" id="editDedAmount" class="form-control" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>Save Changes</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Delete Deduction Modal -->
+<div class="modal fade" id="delDeductionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form method="post" id="delDeductionForm">
+      {% csrf_token %}
+      <div class="modal-content" style="border:none;border-radius:14px;overflow:hidden;">
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title"><i class="fas fa-triangle-exclamation me-2"></i>Remove Deduction</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-4">
+          <p class="mb-2">Remove this deduction?</p>
+          <div class="p-3 rounded-3" style="background:#fef2f2;border:1px solid #fecaca;">
+            <div class="fw-bold text-danger" id="delDedAmount"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-danger"><i class="fas fa-trash me-1"></i>Remove</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if not employee.is_superuser %}
+<!-- Add Commission Modal -->
+<div class="modal fade" id="addCommissionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form method="post" action="{% url 'salary:pay_commission' employee.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="redirect_to" value="detail">
+      <div class="modal-content" style="border:none;border-radius:14px;overflow:hidden;">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title"><i class="fas fa-hand-holding-dollar me-2"></i>Pay Sales Commission</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-4">
+          <div class="mb-3">
+            <label class="form-label fw-medium text-sm">Amount (PKR)</label>
+            <input type="number" step="0.01" min="0.01" name="amount" class="form-control" required>
+          </div>
+          <div class="mb-1">
+            <label class="form-label fw-medium text-sm">Note <span class="text-muted">(optional)</span></label>
+            <input type="text" name="note" maxlength="200" class="form-control">
+          </div>
+          <div class="alert alert-info text-xs mt-3 mb-0">
+            <i class="fas fa-info-circle me-1"></i>Records 1 sale with the current date &amp; time, shows on the employee's dashboard, and is added to their salary slip.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-success"><i class="fas fa-check me-1"></i>Pay Commission</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
 {% endif %}
 {% endblock %}
 
@@ -403,6 +848,59 @@
       delModal && delModal.show();
     });
   });
+
+  // ---- Bonus edit / delete ----
+  const editBonusUrl = "{% url 'salary:emp_edit_bonus' 0 %}";
+  const delBonusUrl  = "{% url 'salary:emp_delete_bonus' 0 %}";
+  const editBonusModal = new bootstrap.Modal(document.getElementById('editBonusModal'));
+  const delBonusModal  = new bootstrap.Modal(document.getElementById('delBonusModal'));
+
+  document.querySelectorAll('.edit-bonus-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.getElementById('editBonusForm').action = editBonusUrl.replace('/0/', '/' + btn.dataset.id + '/');
+      document.getElementById('editBonusTitle').value = btn.dataset.title || '';
+      document.getElementById('editBonusAmount').value = btn.dataset.amount;
+      editBonusModal.show();
+    });
+  });
+  document.querySelectorAll('.del-bonus-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.getElementById('delBonusForm').action = delBonusUrl.replace('/0/', '/' + btn.dataset.id + '/');
+      document.getElementById('delBonusTitle').textContent = btn.dataset.title || '';
+      document.getElementById('delBonusAmount').textContent = '- PKR ' + btn.dataset.amount;
+      delBonusModal.show();
+    });
+  });
+
+  // ---- Deduction edit / delete ----
+  const editDedUrl = "{% url 'salary:emp_edit_deduction' 0 %}";
+  const delDedUrl  = "{% url 'salary:emp_delete_deduction' 0 %}";
+  const editDedModal = new bootstrap.Modal(document.getElementById('editDeductionModal'));
+  const delDedModal  = new bootstrap.Modal(document.getElementById('delDeductionModal'));
+
+  document.querySelectorAll('.edit-ded-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.getElementById('editDeductionForm').action = editDedUrl.replace('/0/', '/' + btn.dataset.id + '/');
+      document.getElementById('editDedReason').value = btn.dataset.reason || 'other';
+      document.getElementById('editDedDesc').value = btn.dataset.desc || '';
+      document.getElementById('editDedAmount').value = btn.dataset.amount;
+      editDedModal.show();
+    });
+  });
+  document.querySelectorAll('.del-ded-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.getElementById('delDeductionForm').action = delDedUrl.replace('/0/', '/' + btn.dataset.id + '/');
+      document.getElementById('delDedAmount').textContent = '- PKR ' + btn.dataset.amount;
+      delDedModal.show();
+    });
+  });
+
+  // Keep the Salary tab active when a period was selected (?m=&y=).
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('m') || params.has('y')) {
+    const trigger = document.querySelector('[data-bs-target="#salary"]');
+    if (trigger) new bootstrap.Tab(trigger).show();
+  }
 })();
 </script>
 {% endif %}

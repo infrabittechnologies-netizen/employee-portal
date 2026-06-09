@@ -292,21 +292,92 @@ def employee_detail_view(request, pk):
             messages.error(request, 'You can only view your own profile.')
             return redirect('accounts:profile')
 
-    # Sales commissions for the current month (shown to admin/manager viewers).
+    # ------------------------------------------------------------------
+    # Salary & compensation report for a chosen period (defaults to now).
+    # Period is adjustable via ?m=<month>&y=<year>.
+    # ------------------------------------------------------------------
     from decimal import Decimal
-    from salary.models import SalesCommission
+    from datetime import date as _date
     from django.utils import timezone as _tz
+    from salary.models import SalesCommission, SalaryDeduction, SalaryBonus, Payslip
+    from attendance.models import Attendance
+    from leaves.models import LeaveBalance
+
     _now = _tz.now()
+    try:
+        sal_month = int(request.GET.get('m') or _now.month)
+        sal_year = int(request.GET.get('y') or _now.year)
+    except (ValueError, TypeError):
+        sal_month, sal_year = _now.month, _now.year
+    if not (1 <= sal_month <= 12):
+        sal_month = _now.month
+
+    basic_salary = employee.basic_salary or Decimal('0.00')
+
     employee_commissions = SalesCommission.objects.filter(
-        employee=employee, month=_now.month, year=_now.year
+        employee=employee, month=sal_month, year=sal_year
     ).order_by('-paid_at')
     commission_total = sum((c.amount for c in employee_commissions), Decimal('0.00'))
 
+    deductions = SalaryDeduction.objects.filter(
+        employee=employee, month=sal_month, year=sal_year
+    ).order_by('source', '-date')
+    deductions_total = sum((d.amount for d in deductions), Decimal('0.00'))
+    manual_deductions_total = sum(
+        (d.amount for d in deductions if d.source == 'manual'), Decimal('0.00')
+    )
+    auto_deductions_total = deductions_total - manual_deductions_total
+
+    bonuses = SalaryBonus.objects.filter(
+        employee=employee, month=sal_month, year=sal_year
+    ).order_by('-date')
+    bonuses_total = sum((b.amount for b in bonuses), Decimal('0.00'))
+
+    gross = basic_salary + bonuses_total + commission_total
+    net_salary = gross - deductions_total
+
+    existing_payslip = Payslip.objects.filter(
+        employee=employee, month=sal_month, year=sal_year
+    ).first()
+
+    # Recent attendance & leave balances to make the other tabs functional.
+    recent_attendance = Attendance.objects.filter(
+        employee=employee
+    ).order_by('-date')[:10]
+    leave_balances = LeaveBalance.objects.filter(employee=employee).select_related('leave_type')
+
+    # For the period selector dropdowns.
+    month_names = [
+        (i, _date(2000, i, 1).strftime('%B')) for i in range(1, 13)
+    ]
+    year_choices = list(range(_now.year - 3, _now.year + 2))
+
     context = {
         'employee': employee,
+        # period
+        'sal_month': sal_month,
+        'sal_year': sal_year,
+        'month_names': month_names,
+        'year_choices': year_choices,
+        # salary figures
+        'basic_salary': basic_salary,
         'employee_commissions': employee_commissions,
         'commission_total': commission_total,
         'commission_sales_count': employee_commissions.count(),
+        'deductions': deductions,
+        'deductions_total': deductions_total,
+        'manual_deductions_total': manual_deductions_total,
+        'auto_deductions_total': auto_deductions_total,
+        'bonuses': bonuses,
+        'bonuses_total': bonuses_total,
+        'gross': gross,
+        'net_salary': net_salary,
+        'existing_payslip': existing_payslip,
+        # other tabs
+        'recent_attendance': recent_attendance,
+        'leave_balances': leave_balances,
+        # deduction reason choices for the add/edit form
+        'deduction_reasons': SalaryDeduction.REASON_CHOICES,
     }
     return render(request, 'accounts/employee_detail.html', context)
 

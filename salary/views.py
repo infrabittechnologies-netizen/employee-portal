@@ -263,8 +263,14 @@ def pay_commission_view(request, pk):
     except (InvalidOperation, ValueError):
         amount = Decimal('0')
 
+    # Where to return after the action: the employees list (default) or the
+    # employee's detail/report page.
+    back_to_detail = request.POST.get('redirect_to') == 'detail'
+
     if amount <= 0:
         messages.error(request, 'Please enter a valid commission amount.')
+        if back_to_detail:
+            return redirect('accounts:employee_detail', pk=employee.pk)
         return redirect('accounts:employee_list')
 
     now = timezone.now()
@@ -277,6 +283,9 @@ def pay_commission_view(request, pk):
         month=now.month,
         year=now.year,
     )
+
+    # Keep any existing payslip for that period in sync.
+    _recalc_payslip_for(employee, now.month, now.year)
 
     # Notify the employee so it surfaces immediately in their portal.
     try:
@@ -297,6 +306,8 @@ def pay_commission_view(request, pk):
         f'Commission of PKR {amount:,.2f} paid to {display_name}. '
         f'1 sale recorded.'
     )
+    if back_to_detail:
+        return redirect('accounts:employee_detail', pk=employee.pk)
     return redirect('accounts:employee_list')
 
 
@@ -378,6 +389,198 @@ def delete_commission_view(request, pk):
 
     messages.success(request, f'Commission of PKR {amount:,.2f} removed.')
     return redirect('accounts:employee_detail', pk=employee.pk)
+
+
+# ---------------------------------------------------------------------------
+# Per-employee salary management (used by the employee detail / report page)
+# ---------------------------------------------------------------------------
+
+def _detail_redirect(employee, month=None, year=None):
+    """Redirect back to an employee's detail page, preserving the period."""
+    url = reverse('accounts:employee_detail', kwargs={'pk': employee.pk})
+    if month and year:
+        url += f'?m={month}&y={year}'
+    return redirect(url)
+
+
+def _parse_amount(raw):
+    try:
+        return Decimal((raw or '').strip())
+    except (InvalidOperation, ValueError):
+        return Decimal('0')
+
+
+def _period_from_post(request):
+    """Read month/year the admin is currently viewing (hidden form fields)."""
+    now = timezone.now()
+    try:
+        month = int(request.POST.get('month') or now.month)
+        year = int(request.POST.get('year') or now.year)
+    except (ValueError, TypeError):
+        month, year = now.month, now.year
+    if not (1 <= month <= 12):
+        month = now.month
+    return month, year
+
+
+@admin_required
+@require_POST
+def update_base_salary_view(request, pk):
+    """Admin adjusts an employee's base (basic) salary."""
+    employee = get_object_or_404(User, pk=pk)
+    amount = _parse_amount(request.POST.get('basic_salary'))
+    if amount < 0:
+        messages.error(request, 'Base salary cannot be negative.')
+        return _detail_redirect(employee)
+
+    employee.basic_salary = amount
+    employee.save(update_fields=['basic_salary'])
+
+    # Keep current-period payslip (if any) consistent with the new base.
+    now = timezone.now()
+    month, year = _period_from_post(request)
+    payslip = Payslip.objects.filter(employee=employee, month=month, year=year).first()
+    if payslip:
+        payslip.basic_salary = amount
+        payslip.save(update_fields=['basic_salary'])
+        _recalc_payslip_for(employee, month, year)
+
+    messages.success(request, f'Base salary updated to PKR {amount:,.2f}.')
+    return _detail_redirect(employee, month, year)
+
+
+@admin_required
+@require_POST
+def emp_add_deduction_view(request, pk):
+    """Add a manual deduction for an employee for the viewed period."""
+    employee = get_object_or_404(User, pk=pk)
+    month, year = _period_from_post(request)
+    amount = _parse_amount(request.POST.get('amount'))
+    reason = request.POST.get('reason') or 'other'
+    description = (request.POST.get('description') or '').strip()
+
+    if amount <= 0:
+        messages.error(request, 'Please enter a valid deduction amount.')
+        return _detail_redirect(employee, month, year)
+
+    SalaryDeduction.objects.create(
+        employee=employee,
+        reason=reason,
+        source='manual',
+        description=description,
+        amount=amount,
+        date=timezone.now().date(),
+        applied_by=request.user,
+        month=month,
+        year=year,
+    )
+    _recalc_payslip_for(employee, month, year)
+    messages.success(request, f'Deduction of PKR {amount:,.2f} added.')
+    return _detail_redirect(employee, month, year)
+
+
+@admin_required
+@require_POST
+def emp_edit_deduction_view(request, pk):
+    """Edit a manual deduction."""
+    deduction = get_object_or_404(SalaryDeduction, pk=pk)
+    employee = deduction.employee
+
+    if deduction.source != 'manual':
+        messages.error(request, 'Auto attendance deductions cannot be edited manually.')
+        return _detail_redirect(employee, deduction.month, deduction.year)
+
+    amount = _parse_amount(request.POST.get('amount'))
+    if amount <= 0:
+        messages.error(request, 'Please enter a valid deduction amount.')
+        return _detail_redirect(employee, deduction.month, deduction.year)
+
+    deduction.amount = amount
+    deduction.reason = request.POST.get('reason') or deduction.reason
+    deduction.description = (request.POST.get('description') or '').strip()
+    deduction.save(update_fields=['amount', 'reason', 'description'])
+    _recalc_payslip_for(employee, deduction.month, deduction.year)
+    messages.success(request, f'Deduction updated to PKR {amount:,.2f}.')
+    return _detail_redirect(employee, deduction.month, deduction.year)
+
+
+@admin_required
+@require_POST
+def emp_delete_deduction_view(request, pk):
+    """Remove a manual deduction."""
+    deduction = get_object_or_404(SalaryDeduction, pk=pk)
+    employee = deduction.employee
+    month, year = deduction.month, deduction.year
+
+    if deduction.source != 'manual':
+        messages.error(request, 'Auto attendance deductions cannot be removed here.')
+        return _detail_redirect(employee, month, year)
+
+    amount = deduction.amount
+    deduction.delete()
+    _recalc_payslip_for(employee, month, year)
+    messages.success(request, f'Deduction of PKR {amount:,.2f} removed.')
+    return _detail_redirect(employee, month, year)
+
+
+@admin_required
+@require_POST
+def emp_add_bonus_view(request, pk):
+    """Add a bonus/allowance for an employee for the viewed period."""
+    employee = get_object_or_404(User, pk=pk)
+    month, year = _period_from_post(request)
+    amount = _parse_amount(request.POST.get('amount'))
+    title = (request.POST.get('title') or '').strip() or 'Bonus'
+
+    if amount <= 0:
+        messages.error(request, 'Please enter a valid bonus amount.')
+        return _detail_redirect(employee, month, year)
+
+    SalaryBonus.objects.create(
+        employee=employee,
+        title=title,
+        amount=amount,
+        date=timezone.now().date(),
+        applied_by=request.user,
+        month=month,
+        year=year,
+    )
+    _recalc_payslip_for(employee, month, year)
+    messages.success(request, f'Bonus "{title}" of PKR {amount:,.2f} added.')
+    return _detail_redirect(employee, month, year)
+
+
+@admin_required
+@require_POST
+def emp_edit_bonus_view(request, pk):
+    """Edit a bonus."""
+    bonus = get_object_or_404(SalaryBonus, pk=pk)
+    employee = bonus.employee
+    amount = _parse_amount(request.POST.get('amount'))
+    if amount <= 0:
+        messages.error(request, 'Please enter a valid bonus amount.')
+        return _detail_redirect(employee, bonus.month, bonus.year)
+
+    bonus.amount = amount
+    bonus.title = (request.POST.get('title') or '').strip() or bonus.title
+    bonus.save(update_fields=['amount', 'title'])
+    _recalc_payslip_for(employee, bonus.month, bonus.year)
+    messages.success(request, f'Bonus updated to PKR {amount:,.2f}.')
+    return _detail_redirect(employee, bonus.month, bonus.year)
+
+
+@admin_required
+@require_POST
+def emp_delete_bonus_view(request, pk):
+    """Remove a bonus."""
+    bonus = get_object_or_404(SalaryBonus, pk=pk)
+    employee = bonus.employee
+    month, year = bonus.month, bonus.year
+    amount = bonus.amount
+    bonus.delete()
+    _recalc_payslip_for(employee, month, year)
+    messages.success(request, f'Bonus of PKR {amount:,.2f} removed.')
+    return _detail_redirect(employee, month, year)
 
 
 @admin_required

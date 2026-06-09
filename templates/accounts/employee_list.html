@@ -96,7 +96,7 @@
         </thead>
         <tbody>
           {% for emp in employees %}
-          <tr>
+          <tr class="emp-row" data-href="{% url 'accounts:employee_detail' emp.pk %}" style="cursor:pointer;">
             <td>
               <div class="d-flex align-items-center gap-3">
                 {% if emp.profile_picture %}
@@ -132,7 +132,7 @@
                 <span class="badge bg-secondary rounded-pill px-2 py-1 text-xs"><i class="fas fa-circle me-1" style="font-size:0.4rem;"></i>Inactive</span>
               {% endif %}
             </td>
-            <td class="text-center">
+            <td class="text-center" onclick="event.stopPropagation();">
               <div class="dropdown">
                 <button class="btn btn-icon btn-sm btn-outline-secondary" type="button"
                         data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false" title="Actions">
@@ -361,6 +361,14 @@
         resetModal.querySelector('#resetDataForm').setAttribute('action', trigger.getAttribute('data-emp-url') || '');
       });
     }
+
+    // Make each employee row clickable -> open the full report page.
+    document.querySelectorAll('tr.emp-row').forEach(function (row) {
+      row.addEventListener('click', function () {
+        const href = row.getAttribute('data-href');
+        if (href) window.location.href = href;
+      });
+    });
   })();
 </script>
 {% endblock %}
