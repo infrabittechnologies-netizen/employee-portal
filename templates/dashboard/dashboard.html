@@ -185,38 +185,37 @@
     </div>
   </div>
 
-  <!-- Leave Summary (Paid Leave — admin approved) -->
+  <!-- Estimated Net Payable (month-end) -->
   <div class="col-12 col-sm-6 col-xl-3">
-    <div class="card h-100 fade-in-up delay-1">
-      <div class="card-body p-4">
-        <div class="d-flex align-items-center gap-2 mb-3">
-          <div style="width:38px;height:38px;border-radius:10px;background:#ede9fe;display:flex;align-items:center;justify-content:center;">
-            <i class="fas fa-calendar-minus text-primary"></i>
+    <div class="card h-100 fade-in-up delay-1 border-0" style="overflow:hidden;">
+      <div class="card-body p-0 d-flex flex-column h-100">
+        <div class="p-4" style="background:linear-gradient(135deg,#0f766e,#10b981);color:#fff;">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <i class="fas fa-sack-dollar"></i>
+            <span class="fw-semibold text-sm text-uppercase" style="letter-spacing:.5px;">Estimated Net Payable</span>
           </div>
-          <div class="fw-semibold text-muted text-sm">Paid Leaves</div>
+          <div class="fw-bold" style="font-size:2rem;line-height:1.1;">PKR {{ net_payable|floatformat:0 }}</div>
+          <div class="text-sm mt-1" style="opacity:.85;">Projected payout at month end</div>
         </div>
-
-        <!-- Approved days this year -->
-        <div class="d-flex align-items-end gap-2 mb-2">
-          <span style="font-size:2rem;font-weight:800;line-height:1;color:#111827;">{{ approved_leaves_this_year }}</span>
-          <span class="text-muted text-sm mb-1">day{{ approved_leaves_this_year|pluralize }} approved<br><span class="text-xs">in {{ today.year }}</span></span>
-        </div>
-
-        <!-- Status pills -->
-        <div class="d-flex flex-wrap gap-1 mb-3">
-          {% if pending_leaves > 0 %}
-          <span class="badge bg-warning text-dark text-xs">{{ pending_leaves }} pending</span>
-          {% endif %}
-          {% if approved_leaves_this_year > 0 %}
-          <span class="badge bg-success text-xs">{{ approved_leaves_this_year }} approved</span>
-          {% endif %}
-        </div>
-
-        <div class="pt-2 border-top">
-          <div class="text-xs text-muted mb-1"><i class="fas fa-info-circle me-1"></i>No fixed quota — admin-approved only</div>
-          <a href="{% url 'leaves:apply_leave' %}" class="btn btn-sm btn-outline-primary w-100 mt-1">
-            <i class="fas fa-plus me-1"></i>Apply for Leave
-          </a>
+        <div class="p-4 flex-grow-1 d-flex flex-column justify-content-center">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="text-muted text-sm"><i class="fas fa-wallet me-2 text-secondary"></i>Base after deductions</span>
+            <span class="fw-semibold text-sm">PKR {{ remaining_base|floatformat:0 }}</span>
+          </div>
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="text-muted text-sm"><i class="fas fa-hand-holding-dollar me-2 text-success"></i>Sales commission</span>
+            <span class="fw-semibold text-sm text-success">+ PKR {{ commission_total|floatformat:0 }}</span>
+          </div>
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="text-muted text-sm"><i class="fas fa-gift me-2 text-success"></i>Bonuses</span>
+            <span class="fw-semibold text-sm text-success">+ PKR {{ bonuses_total|floatformat:0 }}</span>
+          </div>
+          <hr class="my-2">
+          <div class="d-flex justify-content-between align-items-center">
+            <span class="fw-bold">Grand Total</span>
+            <span class="fw-bold text-success" style="font-size:1.25rem;">PKR {{ net_payable|floatformat:0 }}</span>
+          </div>
+          <div class="text-xs text-muted mt-2"><i class="fas fa-info-circle me-1"></i>Live estimate — deductions update daily.</div>
         </div>
       </div>
     </div>
@@ -279,37 +278,38 @@
 <!-- ── Second Row ── -->
 <div class="row g-4 mb-4">
 
-  <!-- Estimated Net Payable (month-end) -->
+  <!-- Leave Summary (Paid Leave — admin approved) -->
   <div class="col-12 col-lg-4">
-    <div class="card h-100 fade-in-up delay-2 border-0" style="overflow:hidden;">
-      <div class="card-body p-0 d-flex flex-column h-100">
-        <div class="p-4" style="background:linear-gradient(135deg,#0f766e,#10b981);color:#fff;">
-          <div class="d-flex align-items-center gap-2 mb-2">
-            <i class="fas fa-sack-dollar"></i>
-            <span class="fw-semibold text-sm text-uppercase" style="letter-spacing:.5px;">Estimated Net Payable</span>
+    <div class="card h-100 fade-in-up delay-2">
+      <div class="card-body p-4">
+        <div class="d-flex align-items-center gap-2 mb-3">
+          <div style="width:38px;height:38px;border-radius:10px;background:#ede9fe;display:flex;align-items:center;justify-content:center;">
+            <i class="fas fa-calendar-minus text-primary"></i>
           </div>
-          <div class="fw-bold" style="font-size:2rem;line-height:1.1;">PKR {{ net_payable|floatformat:0 }}</div>
-          <div class="text-sm mt-1" style="opacity:.85;">Projected payout at month end</div>
+          <div class="fw-semibold text-muted text-sm">Paid Leaves</div>
         </div>
-        <div class="p-4 flex-grow-1 d-flex flex-column justify-content-center">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <span class="text-muted text-sm"><i class="fas fa-wallet me-2 text-secondary"></i>Base after deductions</span>
-            <span class="fw-semibold text-sm">PKR {{ remaining_base|floatformat:0 }}</span>
-          </div>
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <span class="text-muted text-sm"><i class="fas fa-hand-holding-dollar me-2 text-success"></i>Sales commission</span>
-            <span class="fw-semibold text-sm text-success">+ PKR {{ commission_total|floatformat:0 }}</span>
-          </div>
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <span class="text-muted text-sm"><i class="fas fa-gift me-2 text-success"></i>Bonuses</span>
-            <span class="fw-semibold text-sm text-success">+ PKR {{ bonuses_total|floatformat:0 }}</span>
-          </div>
-          <hr class="my-2">
-          <div class="d-flex justify-content-between align-items-center">
-            <span class="fw-bold">Grand Total</span>
-            <span class="fw-bold text-success" style="font-size:1.25rem;">PKR {{ net_payable|floatformat:0 }}</span>
-          </div>
-          <div class="text-xs text-muted mt-2"><i class="fas fa-info-circle me-1"></i>Live estimate — deductions update daily.</div>
+
+        <!-- Approved days this year -->
+        <div class="d-flex align-items-end gap-2 mb-2">
+          <span style="font-size:2rem;font-weight:800;line-height:1;color:#111827;">{{ approved_leaves_this_year }}</span>
+          <span class="text-muted text-sm mb-1">day{{ approved_leaves_this_year|pluralize }} approved<br><span class="text-xs">in {{ today.year }}</span></span>
+        </div>
+
+        <!-- Status pills -->
+        <div class="d-flex flex-wrap gap-1 mb-3">
+          {% if pending_leaves > 0 %}
+          <span class="badge bg-warning text-dark text-xs">{{ pending_leaves }} pending</span>
+          {% endif %}
+          {% if approved_leaves_this_year > 0 %}
+          <span class="badge bg-success text-xs">{{ approved_leaves_this_year }} approved</span>
+          {% endif %}
+        </div>
+
+        <div class="pt-2 border-top">
+          <div class="text-xs text-muted mb-1"><i class="fas fa-info-circle me-1"></i>No fixed quota — admin-approved only</div>
+          <a href="{% url 'leaves:apply_leave' %}" class="btn btn-sm btn-outline-primary w-100 mt-1">
+            <i class="fas fa-plus me-1"></i>Apply for Leave
+          </a>
         </div>
       </div>
     </div>
