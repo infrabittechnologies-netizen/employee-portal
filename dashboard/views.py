@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from attendance.models import Attendance
 from leaves.models import LeaveApplication, LeaveBalance
-from salary.models import SalaryDeduction, Payslip, SalesCommission
+from salary.models import SalaryDeduction, Payslip, SalesCommission, SalaryBonus
 from performance.models import PerformanceReview
 from holidays.models import Holiday, Announcement
 from notifications_app.models import Notification
@@ -99,6 +99,16 @@ def dashboard_view(request):
     commission_total = sum(c.amount for c in current_month_commissions)
     sales_count = current_month_commissions.count()
 
+    # Bonuses / allowances added this month.
+    current_month_bonuses = SalaryBonus.objects.filter(
+        employee=user, month=today.month, year=today.year
+    ).order_by('-date')
+    bonuses_total = sum((b.amount for b in current_month_bonuses), Decimal('0.00'))
+
+    # Grand total payable at month end:
+    #   (base salary - deductions) + commissions + bonuses
+    net_payable = remaining_base + Decimal(commission_total) + bonuses_total
+
     latest_payslip = Payslip.objects.filter(employee=user).first()
     latest_review = PerformanceReview.objects.filter(employee=user).first()
     upcoming_holidays = Holiday.objects.filter(
@@ -140,6 +150,9 @@ def dashboard_view(request):
         'current_month_commissions': current_month_commissions,
         'commission_total': commission_total,
         'sales_count': sales_count,
+        'current_month_bonuses': current_month_bonuses,
+        'bonuses_total': bonuses_total,
+        'net_payable': net_payable,
         'latest_payslip': latest_payslip,
         'latest_review': latest_review,
         'upcoming_holidays': upcoming_holidays,

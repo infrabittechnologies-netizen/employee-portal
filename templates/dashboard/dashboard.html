@@ -279,37 +279,38 @@
 <!-- ── Second Row ── -->
 <div class="row g-4 mb-4">
 
-  <!-- Monthly Attendance Stats -->
+  <!-- Estimated Net Payable (month-end) -->
   <div class="col-12 col-lg-4">
-    <div class="card h-100 fade-in-up delay-2">
-      <div class="card-header d-flex align-items-center gap-2">
-        <i class="fas fa-chart-pie text-primary"></i>
-        <span>This Month's Attendance</span>
-      </div>
-      <div class="card-body p-4">
-        <div class="row g-3 text-center mb-3">
-          <div class="col-4">
-            <div style="background:#d1fae5;border-radius:12px;padding:16px 8px;">
-              <div style="font-size:1.8rem;font-weight:800;color:#065f46;">{{ present_days }}</div>
-              <div class="text-xs text-muted mt-1">Present</div>
-            </div>
+    <div class="card h-100 fade-in-up delay-2 border-0" style="overflow:hidden;">
+      <div class="card-body p-0 d-flex flex-column h-100">
+        <div class="p-4" style="background:linear-gradient(135deg,#0f766e,#10b981);color:#fff;">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <i class="fas fa-sack-dollar"></i>
+            <span class="fw-semibold text-sm text-uppercase" style="letter-spacing:.5px;">Estimated Net Payable</span>
           </div>
-          <div class="col-4">
-            <div style="background:#fee2e2;border-radius:12px;padding:16px 8px;">
-              <div style="font-size:1.8rem;font-weight:800;color:#991b1b;">{{ absent_days }}</div>
-              <div class="text-xs text-muted mt-1">Absent</div>
-            </div>
-          </div>
-          <div class="col-4">
-            <div style="background:#fef3c7;border-radius:12px;padding:16px 8px;">
-              <div style="font-size:1.8rem;font-weight:800;color:#92400e;">{{ late_days }}</div>
-              <div class="text-xs text-muted mt-1">Late</div>
-            </div>
-          </div>
+          <div class="fw-bold" style="font-size:2rem;line-height:1.1;">PKR {{ net_payable|floatformat:0 }}</div>
+          <div class="text-sm mt-1" style="opacity:.85;">Projected payout at month end</div>
         </div>
-        <a href="{% url 'attendance:my_attendance' %}" class="btn btn-outline-primary btn-sm w-100">
-          <i class="fas fa-calendar-check me-1"></i>Full Attendance Log
-        </a>
+        <div class="p-4 flex-grow-1 d-flex flex-column justify-content-center">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="text-muted text-sm"><i class="fas fa-wallet me-2 text-secondary"></i>Base after deductions</span>
+            <span class="fw-semibold text-sm">PKR {{ remaining_base|floatformat:0 }}</span>
+          </div>
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="text-muted text-sm"><i class="fas fa-hand-holding-dollar me-2 text-success"></i>Sales commission</span>
+            <span class="fw-semibold text-sm text-success">+ PKR {{ commission_total|floatformat:0 }}</span>
+          </div>
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="text-muted text-sm"><i class="fas fa-gift me-2 text-success"></i>Bonuses</span>
+            <span class="fw-semibold text-sm text-success">+ PKR {{ bonuses_total|floatformat:0 }}</span>
+          </div>
+          <hr class="my-2">
+          <div class="d-flex justify-content-between align-items-center">
+            <span class="fw-bold">Grand Total</span>
+            <span class="fw-bold text-success" style="font-size:1.25rem;">PKR {{ net_payable|floatformat:0 }}</span>
+          </div>
+          <div class="text-xs text-muted mt-2"><i class="fas fa-info-circle me-1"></i>Live estimate — deductions update daily.</div>
+        </div>
       </div>
     </div>
   </div>
@@ -418,8 +419,43 @@
 <!-- ── Third Row ── -->
 <div class="row g-4">
 
+  <!-- Monthly Attendance Stats (moved here) -->
+  <div class="col-12 col-lg-4">
+    <div class="card h-100 fade-in-up delay-2">
+      <div class="card-header d-flex align-items-center gap-2">
+        <i class="fas fa-chart-pie text-primary"></i>
+        <span>This Month's Attendance</span>
+      </div>
+      <div class="card-body p-4">
+        <div class="row g-3 text-center mb-3">
+          <div class="col-4">
+            <div style="background:#d1fae5;border-radius:12px;padding:16px 8px;">
+              <div style="font-size:1.8rem;font-weight:800;color:#065f46;">{{ present_days }}</div>
+              <div class="text-xs text-muted mt-1">Present</div>
+            </div>
+          </div>
+          <div class="col-4">
+            <div style="background:#fee2e2;border-radius:12px;padding:16px 8px;">
+              <div style="font-size:1.8rem;font-weight:800;color:#991b1b;">{{ absent_days }}</div>
+              <div class="text-xs text-muted mt-1">Absent</div>
+            </div>
+          </div>
+          <div class="col-4">
+            <div style="background:#fef3c7;border-radius:12px;padding:16px 8px;">
+              <div style="font-size:1.8rem;font-weight:800;color:#92400e;">{{ late_days }}</div>
+              <div class="text-xs text-muted mt-1">Late</div>
+            </div>
+          </div>
+        </div>
+        <a href="{% url 'attendance:my_attendance' %}" class="btn btn-outline-primary btn-sm w-100">
+          <i class="fas fa-calendar-check me-1"></i>Full Attendance Log
+        </a>
+      </div>
+    </div>
+  </div>
+
   <!-- Upcoming Holidays -->
-  <div class="col-12 col-lg-6">
+  <div class="col-12 col-lg-4">
     <div class="card h-100 fade-in-up delay-3">
       <div class="card-header d-flex justify-content-between align-items-center">
         <div class="d-flex align-items-center gap-2">
@@ -458,7 +494,7 @@
   </div>
 
   <!-- Announcements -->
-  <div class="col-12 col-lg-6">
+  <div class="col-12 col-lg-4">
     <div class="card h-100 fade-in-up delay-4">
       <div class="card-header d-flex justify-content-between align-items-center">
         <div class="d-flex align-items-center gap-2">
