@@ -186,6 +186,95 @@
   </div>
 </div>
 
+<!-- Live Sales Commissions (no payslip needed) -->
+<div class="card mb-4 fade-in-up delay-1">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <div>
+      <i class="fas fa-hand-holding-dollar text-success me-2"></i>Sales Commissions
+      <span class="text-muted text-xs ms-1">— added to salary slip, {{ commission_sales_count }} sale{{ commission_sales_count|pluralize }} this period</span>
+    </div>
+    <span class="badge bg-success-subtle text-success">
+      Total: PKR {{ commission_grand_total|floatformat:2 }}
+    </span>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table mb-0 align-middle">
+        <thead>
+          <tr>
+            <th>Employee</th>
+            <th class="text-center">Sales</th>
+            <th class="text-end">Total Commission</th>
+            <th class="text-center">Breakdown</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in commission_rows %}
+          <tr>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                {% if row.employee.profile_picture %}
+                  <img src="{{ row.employee.profile_picture.url }}" class="rounded-circle" width="30" height="30" style="object-fit:cover;" alt="">
+                {% else %}
+                  <div class="rounded-circle bg-success d-flex align-items-center justify-content-center text-white fw-bold"
+                       style="width:30px;height:30px;font-size:0.65rem;">
+                    {{ row.employee.first_name|first|upper }}{{ row.employee.last_name|first|upper }}
+                  </div>
+                {% endif %}
+                <div>
+                  <div class="fw-semibold text-sm">{{ row.employee.get_full_name|default:row.employee.username }}</div>
+                  <div class="text-xs text-muted">{{ row.employee.employee_id }}</div>
+                </div>
+              </div>
+            </td>
+            <td class="text-center">
+              <span class="badge bg-primary-subtle text-primary">{{ row.count }} sale{{ row.count|pluralize }}</span>
+            </td>
+            <td class="text-end text-sm fw-bold text-success">PKR {{ row.total|floatformat:2 }}</td>
+            <td class="text-center">
+              <button class="btn btn-icon btn-sm btn-outline-secondary" type="button"
+                      data-bs-toggle="collapse" data-bs-target="#liveComm{{ row.employee.pk }}" title="View breakdown">
+                <i class="fas fa-list-ul"></i>
+              </button>
+            </td>
+          </tr>
+          <tr class="collapse" id="liveComm{{ row.employee.pk }}">
+            <td colspan="4" class="bg-light">
+              <div class="p-2">
+                <table class="table table-sm mb-0">
+                  <thead>
+                    <tr class="text-xs text-muted">
+                      <th>Date &amp; Time</th><th>Note</th><th>Paid by</th><th class="text-end">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for c in row.items %}
+                    <tr class="text-sm">
+                      <td>{{ c.paid_at|date:"d M Y, h:i A" }}</td>
+                      <td class="text-muted">{{ c.note|default:"—" }}</td>
+                      <td class="text-muted">{{ c.paid_by.get_full_name|default:"—" }}</td>
+                      <td class="text-end text-success">PKR {{ c.amount|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="4" class="text-center py-4 text-muted">
+              <i class="fas fa-hand-holding-dollar fa-2x mb-2 d-block opacity-25"></i>
+              No sales commissions for the selected period.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <!-- Payslip Table -->
 <div class="card fade-in-up delay-1">
   <div class="card-header d-flex justify-content-between align-items-center">

@@ -416,7 +416,8 @@ def employee_reset_data_view(request, pk):
     """
     Wipe ALL of an employee's records while keeping their account intact:
     attendance (and break logs), leave applications & balances, payslips,
-    salary deductions & bonuses, performance reviews, KPIs and notifications.
+    salary deductions, bonuses & sales commissions, performance reviews,
+    KPIs and notifications.
 
     The employee, their login, profile and salary settings remain — they
     simply start with a clean history.
@@ -451,6 +452,7 @@ def employee_reset_data_view(request, pk):
             employee.payslips.all().delete()
             employee.deductions.all().delete()
             employee.bonuses.all().delete()
+            employee.commissions.all().delete()      # sales commissions
             employee.performance_reviews.all().delete()
             employee.kpis.all().delete()
             employee.notifications.all().delete()

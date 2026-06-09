@@ -430,6 +430,28 @@ def salary_report_view(request):
             live_deductions.append({'employee': emp, 'summary': summary})
             live_total += summary['total']
 
+    # Sales commissions for the selected period — grouped per employee, shown
+    # WITHOUT requiring a payslip (mirrors the live-deductions card).
+    commission_qs = (
+        SalesCommission.objects.filter(month=month, year=year)
+        .select_related('employee')
+        .order_by('employee__first_name', '-paid_at')
+    )
+    commissions_by_emp = {}
+    commission_grand_total = Decimal('0.00')
+    commission_sales_count = 0
+    for c in commission_qs:
+        entry = commissions_by_emp.setdefault(
+            c.employee_id,
+            {'employee': c.employee, 'items': [], 'total': Decimal('0.00'), 'count': 0},
+        )
+        entry['items'].append(c)
+        entry['total'] += c.amount
+        entry['count'] += 1
+        commission_grand_total += c.amount
+        commission_sales_count += 1
+    commission_rows = list(commissions_by_emp.values())
+
     month_choices = list(range(1, 13))
     year_choices = list(range(2020, 2031))
 
@@ -439,6 +461,9 @@ def salary_report_view(request):
         'employees': employees,
         'live_deductions': live_deductions,
         'live_total': live_total,
+        'commission_rows': commission_rows,
+        'commission_grand_total': commission_grand_total,
+        'commission_sales_count': commission_sales_count,
         'selected_month': month,
         'selected_year': year,
         'month_choices': month_choices,
