@@ -59,7 +59,7 @@
 
     {% if request.user.is_admin %}
     <a href="{% url 'dashboard:admin_dashboard' %}"
-       class="nav-link{% block nav_admin_dashboard %}{% endblock %}"
+       class="nav-link {% block nav_admin_dashboard %}{% endblock %}"
        data-tooltip="Admin Dashboard">
       <i class="fas fa-tachometer-alt nav-icon"></i>
       <span class="nav-label">Admin Dashboard</span>
@@ -71,14 +71,14 @@
     <div class="nav-section-label">Employee</div>
 
     <a href="{% url 'attendance:my_attendance' %}"
-       class="nav-link{% block nav_attendance %}{% endblock %}"
+       class="nav-link {% block nav_attendance %}{% endblock %}"
        data-tooltip="Attendance">
       <i class="fas fa-calendar-check nav-icon"></i>
       <span class="nav-label">Attendance</span>
     </a>
 
     <a href="{% url 'leaves:my_leaves' %}"
-       class="nav-link{% block nav_leaves %}{% endblock %}"
+       class="nav-link {% block nav_leaves %}{% endblock %}"
        data-tooltip="My Leaves">
       <i class="fas fa-calendar-minus nav-icon"></i>
       <span class="nav-label">My Leaves</span>
@@ -88,14 +88,14 @@
     </a>
 
     <a href="{% url 'salary:my_salary' %}"
-       class="nav-link{% block nav_salary %}{% endblock %}"
+       class="nav-link {% block nav_salary %}{% endblock %}"
        data-tooltip="Salary">
       <i class="fas fa-money-bill-wave nav-icon"></i>
       <span class="nav-label">Salary</span>
     </a>
 
     <a href="{% url 'performance:my_performance' %}"
-       class="nav-link{% block nav_performance %}{% endblock %}"
+       class="nav-link {% block nav_performance %}{% endblock %}"
        data-tooltip="Performance">
       <i class="fas fa-chart-line nav-icon"></i>
       <span class="nav-label">Performance</span>
@@ -106,14 +106,14 @@
     <div class="nav-section-label">Company</div>
 
     <a href="{% url 'holidays:holiday_list' %}"
-       class="nav-link{% block nav_holidays %}{% endblock %}"
+       class="nav-link {% block nav_holidays %}{% endblock %}"
        data-tooltip="Holidays">
       <i class="fas fa-umbrella-beach nav-icon"></i>
       <span class="nav-label">Holidays</span>
     </a>
 
     <a href="{% url 'holidays:announcement_list' %}"
-       class="nav-link{% block nav_announcements %}{% endblock %}"
+       class="nav-link {% block nav_announcements %}{% endblock %}"
        data-tooltip="Announcements">
       <i class="fas fa-bullhorn nav-icon"></i>
       <span class="nav-label">Announcements</span>
@@ -124,28 +124,28 @@
     <div class="nav-section-label">Admin</div>
 
     <a href="{% url 'accounts:employee_list' %}"
-       class="nav-link{% block nav_employees %}{% endblock %}"
+       class="nav-link {% block nav_employees %}{% endblock %}"
        data-tooltip="Employees">
       <i class="fas fa-users nav-icon"></i>
       <span class="nav-label">Employees</span>
     </a>
 
     <a href="{% url 'attendance:attendance_report' %}"
-       class="nav-link{% block nav_att_report %}{% endblock %}"
+       class="nav-link {% block nav_att_report %}{% endblock %}"
        data-tooltip="Attendance Report">
       <i class="fas fa-clipboard-list nav-icon"></i>
       <span class="nav-label">Att. Report</span>
     </a>
 
     <a href="{% url 'leaves:pending_leaves' %}"
-       class="nav-link{% block nav_pending_leaves %}{% endblock %}"
+       class="nav-link {% block nav_pending_leaves %}{% endblock %}"
        data-tooltip="Leave Requests">
       <i class="fas fa-inbox nav-icon"></i>
       <span class="nav-label">Leave Requests</span>
     </a>
 
     <a href="{% url 'salary:salary_report' %}"
-       class="nav-link{% block nav_salary_report %}{% endblock %}"
+       class="nav-link {% block nav_salary_report %}{% endblock %}"
        data-tooltip="Salary Report">
       <i class="fas fa-file-invoice-dollar nav-icon"></i>
       <span class="nav-label">Salary Report</span>
