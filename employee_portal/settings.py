@@ -40,11 +40,38 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    # Runs after auth so it knows the role: only ordinary employees are
+    # limited to the approved office IPs; admins can sign in from anywhere.
+    'employee_portal.middleware.IPWhitelistMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'employee_portal.middleware.DesktopOnlyMiddleware',
     'employee_portal.middleware.EmployeeAutoLogoutMiddleware',
 ]
+
+# ---------------------------------------------------------------------------
+# IP allow-list — the portal is usable ONLY from these approved public IPs.
+# Any other IP gets a professional "access blocked" page on every URL
+# (including login). Override on Railway via the PORTAL_ALLOWED_IPS env var
+# (comma-separated; single IPs or CIDR ranges, IPv4/IPv6).
+#
+# Defaults below: two office IPs + the owner's laptop.
+# Leave the list non-empty; an empty list disables the guard (fail-open) to
+# avoid accidentally locking everyone out.
+# ---------------------------------------------------------------------------
+PORTAL_ALLOWED_IPS = [
+    ip.strip() for ip in config(
+        'PORTAL_ALLOWED_IPS',
+        default='203.96.170.34,39.34.172.108,154.57.217.25',
+    ).split(',') if ip.strip()
+]
+
+# Which X-Forwarded-For entry is the real client. Default ('auto') walks the
+# chain from the right and picks the last PUBLIC IP (spoof-resistant on a
+# single-proxy platform like Railway). Set to an integer index only if a
+# platform needs an explicit position (e.g. -2).
+_xff_idx = str(config('PORTAL_IP_XFF_INDEX', default='auto')).strip()
+PORTAL_IP_XFF_INDEX = int(_xff_idx) if _xff_idx not in ('', 'auto') else None
 
 ROOT_URLCONF = 'employee_portal.urls'
 
