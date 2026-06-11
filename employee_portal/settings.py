@@ -43,6 +43,9 @@ MIDDLEWARE = [
     # Runs after auth so it knows the role: only ordinary employees are
     # limited to the approved office IPs; admins can sign in from anywhere.
     'employee_portal.middleware.IPWhitelistMiddleware',
+    # Binds each non-admin account to one device and enforces it on every
+    # request (employees can't have a colleague log in on another laptop).
+    'employee_portal.middleware.DeviceLockMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'employee_portal.middleware.DesktopOnlyMiddleware',

@@ -167,6 +167,86 @@ class IPWhitelistMiddleware:
             return HttpResponse(html, status=403)
         return self.get_response(request)
 
+class DeviceLockMiddleware:
+    """Bind each non-admin account to ONE device and enforce it on EVERY request.
+
+    This is the real guarantee (the login view only checks at sign-in time):
+
+    * First authenticated request from an account with no registered device
+      binds the **current** device (a long-lived cookie token) to that account
+      for life — so an employee's own laptop self-registers the moment they
+      browse, with no admin action.
+    * Every later request from a device whose cookie token does NOT match the
+      registered one is signed out and shown a 403 "registered device" page.
+      A borrowed/colleague's laptop therefore cannot use the account at all.
+
+    Admins/superusers are exempt so the owner can manage from any laptop.
+    """
+
+    _EXEMPT_PREFIXES = ("/static/", "/media/")
+    # Login/logout stay reachable; ip-debug is a diagnostics endpoint.
+    _EXEMPT_PATHS = (
+        "/accounts/login/",
+        "/accounts/logout/",
+        "/accounts/ip-debug/",
+    )
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        user = getattr(request, "user", None)
+        if (
+            not user_is_device_locked(user)
+            or request.path in self._EXEMPT_PATHS
+            or request.path.startswith(self._EXEMPT_PREFIXES)
+        ):
+            return self.get_response(request)
+
+        import uuid
+        from django.utils import timezone
+
+        cookie = request.COOKIES.get(DEVICE_COOKIE_NAME)
+
+        # No device registered yet → bind THIS device permanently.
+        if not user.device_id:
+            token = cookie or uuid.uuid4().hex
+            user.device_id = token
+            user.device_user_agent = request.META.get("HTTP_USER_AGENT", "")[:300]
+            user.device_registered_at = timezone.now()
+            user.save(update_fields=[
+                "device_id", "device_user_agent", "device_registered_at",
+            ])
+            response = self.get_response(request)
+            response.set_cookie(
+                DEVICE_COOKIE_NAME,
+                token,
+                max_age=DEVICE_COOKIE_MAX_AGE,
+                httponly=True,
+                samesite="Lax",
+                secure=not settings.DEBUG,
+            )
+            return response
+
+        # Registered device matches → allow (and keep the cookie fresh).
+        if cookie and cookie == user.device_id:
+            response = self.get_response(request)
+            response.set_cookie(
+                DEVICE_COOKIE_NAME,
+                user.device_id,
+                max_age=DEVICE_COOKIE_MAX_AGE,
+                httponly=True,
+                samesite="Lax",
+                secure=not settings.DEBUG,
+            )
+            return response
+
+        # A different device → sign out and block.
+        logout(request)
+        html = render_to_string("device_blocked.html", {})
+        return HttpResponse(html, status=403)
+
+
 # Matches phones and tablets. Desktops/laptops (Windows, macOS, Linux,
 # Chrome OS) do not contain these tokens.
 MOBILE_UA_RE = re.compile(

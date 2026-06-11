@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Device Not Registered – Infrabit Portal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #0a0f1a 0%, #0f172a 100%);
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 24px;
+      padding: 48px 32px;
+      max-width: 460px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+    }
+    .icon {
+      width: 88px;
+      height: 88px;
+      margin: 0 auto 28px;
+      border-radius: 22px;
+      background: linear-gradient(135deg, #f59e0b, #b45309);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 12px 30px rgba(245, 158, 11, 0.4);
+    }
+    .icon svg { width: 44px; height: 44px; stroke: #fff; }
+    h1 { font-size: 22px; font-weight: 800; color: #fff; margin-bottom: 12px; letter-spacing: -0.02em; }
+    p { font-size: 15px; line-height: 1.6; color: #94a3b8; margin-bottom: 8px; }
+    .highlight { color: #fcd34d; font-weight: 600; }
+    .actions { margin-top: 26px; }
+    .btn {
+      display: inline-block;
+      padding: 11px 22px;
+      border-radius: 12px;
+      background: #2563eb;
+      color: #fff;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .footer {
+      margin-top: 28px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      font-size: 12px;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+        <path d="M8 21h8M12 17v4"></path>
+        <path d="M2 3l20 18"></path>
+      </svg>
+    </div>
+    <h1>This Is Not Your Registered Device</h1>
+    <p>Your account is locked to <span class="highlight">one registered device</span> for security.</p>
+    <p>You can only sign in from your own registered laptop. If you have a new device, ask your administrator to reset it.</p>
+
+    <div class="actions">
+      <a class="btn" href="/accounts/login/">Back to Login</a>
+    </div>
+
+    <div class="footer">
+      If you believe this is a mistake, contact your administrator to reset your registered device.
+    </div>
+  </div>
+</body>
+</html>
