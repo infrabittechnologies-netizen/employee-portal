@@ -62,7 +62,7 @@ MIDDLEWARE = [
 PORTAL_ALLOWED_IPS = [
     ip.strip() for ip in config(
         'PORTAL_ALLOWED_IPS',
-        default='203.96.170.34,39.34.172.108,154.57.217.25',
+        default='203.96.170.34,39.34.172.108,154.57.217.25,223.123.43.4',
     ).split(',') if ip.strip()
 ]
 
