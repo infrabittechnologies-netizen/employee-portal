@@ -137,6 +137,74 @@ def user_is_device_locked(user):
     return True
 
 
+def ua_signature(ua):
+    """Coarse, version-tolerant fingerprint of a User-Agent → 'browser|os'.
+
+    Browser auto-updates change the version number but NOT this signature, so a
+    legitimate user is never locked out when their browser updates. Switching
+    browser or machine DOES change it — which is exactly the copied-cookie case
+    we want to catch. Returns '' if nothing recognisable.
+    """
+    if not ua:
+        return ""
+    u = ua.lower()
+    if "windows" in u:
+        os_ = "windows"
+    elif "cros" in u:
+        os_ = "chromeos"
+    elif "mac os" in u or "macintosh" in u:
+        os_ = "mac"
+    elif "linux" in u or "x11" in u:
+        os_ = "linux"
+    else:
+        os_ = "other"
+    # Order matters: Edge/Opera/Brave also contain "Chrome".
+    if "edg" in u:
+        br = "edge"
+    elif "opr" in u or "opera" in u:
+        br = "opera"
+    elif "firefox" in u or "fxios" in u:
+        br = "firefox"
+    elif "chrome" in u or "crios" in u or "chromium" in u:
+        br = "chrome"
+    elif "safari" in u:
+        br = "safari"
+    else:
+        br = "other"
+    return f"{br}|{os_}"
+
+
+def notify_admins(title, message, link="", throttle_minutes=30):
+    """Send a security notification to every active admin/superuser.
+
+    Identical (title+message) alerts are throttled per-admin within
+    ``throttle_minutes`` so a retrying attacker can't flood the bell.
+    """
+    from datetime import timedelta
+
+    from django.db.models import Q
+    from django.utils import timezone
+
+    from accounts.models import CustomUser
+    from notifications_app.models import Notification
+
+    admins = list(
+        CustomUser.objects.filter(is_active=True)
+        .filter(Q(role="admin") | Q(is_superuser=True))
+        .distinct()
+    )
+    if not admins:
+        return
+    cutoff = timezone.now() - timedelta(minutes=throttle_minutes)
+    for admin in admins:
+        recent = Notification.objects.filter(
+            recipient=admin, title=title, message=message, created_at__gte=cutoff
+        ).exists()
+        if recent:
+            continue
+        Notification.send(admin, title, message, notification_type="general", link=link)
+
+
 class IPWhitelistMiddleware:
     """Restrict ORDINARY EMPLOYEES to the approved office IP addresses.
 
@@ -204,47 +272,130 @@ class DeviceLockMiddleware:
             return self.get_response(request)
 
         import uuid
+        from datetime import timedelta
+
         from django.utils import timezone
 
         cookie = request.COOKIES.get(DEVICE_COOKIE_NAME)
+        cur_ua = request.META.get("HTTP_USER_AGENT", "")
+        cur_ip = get_client_ip(request)
+        now = timezone.now()
 
         # No device registered yet → bind THIS device permanently.
         if not user.device_id:
             token = cookie or uuid.uuid4().hex
             user.device_id = token
-            user.device_user_agent = request.META.get("HTTP_USER_AGENT", "")[:300]
-            user.device_registered_at = timezone.now()
+            user.device_user_agent = cur_ua[:300]
+            user.device_registered_at = now
+            user.device_last_ip = cur_ip or ""
+            user.device_last_seen = now
             user.save(update_fields=[
                 "device_id", "device_user_agent", "device_registered_at",
+                "device_last_ip", "device_last_seen",
             ])
             response = self.get_response(request)
-            response.set_cookie(
-                DEVICE_COOKIE_NAME,
-                token,
-                max_age=DEVICE_COOKIE_MAX_AGE,
-                httponly=True,
-                samesite="Lax",
-                secure=not settings.DEBUG,
-            )
+            self._set_cookie(response, token)
             return response
 
-        # Registered device matches → allow (and keep the cookie fresh).
-        if cookie and cookie == user.device_id:
-            response = self.get_response(request)
-            response.set_cookie(
-                DEVICE_COOKIE_NAME,
-                user.device_id,
-                max_age=DEVICE_COOKIE_MAX_AGE,
-                httponly=True,
-                samesite="Lax",
-                secure=not settings.DEBUG,
-            )
-            return response
+        # Wrong / missing device cookie → different device → block.
+        if not cookie or cookie != user.device_id:
+            return self._block(user, request, reason="an unrecognized device")
 
-        # A different device → sign out and block.
+        # Right cookie but a DIFFERENT browser/OS → the cookie was copied to
+        # another browser/machine (version bumps are tolerated by ua_signature).
+        if user.device_user_agent and cur_ua:
+            if ua_signature(cur_ua) != ua_signature(user.device_user_agent):
+                return self._block(user, request, reason="an unrecognized browser")
+
+        # Legit device + browser. Track IP to spot a copied cookie used from two
+        # places at once. We do NOT block on IP change (office NAT can rotate
+        # among approved IPs) — we alert the admins instead.
+        if cur_ip and user.device_last_ip and cur_ip != user.device_last_ip:
+            if user.device_last_seen and (now - user.device_last_seen) < timedelta(minutes=10):
+                notify_admins(
+                    "Possible session sharing detected",
+                    f"{user.get_full_name() or user.username} "
+                    f"({user.employee_id or '—'}) was seen from two different IPs "
+                    f"({user.device_last_ip} then {cur_ip}) on the same registered "
+                    f"device within minutes. This can indicate a copied/shared login.",
+                    link=f"/accounts/employees/{user.pk}/",
+                )
+            user.device_last_ip = cur_ip
+            user.device_last_seen = now
+            user.save(update_fields=["device_last_ip", "device_last_seen"])
+        elif not user.device_last_seen or (now - user.device_last_seen) > timedelta(minutes=5):
+            if cur_ip:
+                user.device_last_ip = cur_ip
+            user.device_last_seen = now
+            user.save(update_fields=["device_last_ip", "device_last_seen"])
+
+        response = self.get_response(request)
+        self._set_cookie(response, user.device_id)
+        return response
+
+    def _set_cookie(self, response, token):
+        response.set_cookie(
+            DEVICE_COOKIE_NAME,
+            token,
+            max_age=DEVICE_COOKIE_MAX_AGE,
+            httponly=True,
+            samesite="Lax",
+            secure=not settings.DEBUG,
+        )
+
+    def _block(self, user, request, reason):
+        notify_admins(
+            "Blocked device/browser access attempt",
+            f"{user.get_full_name() or user.username} ({user.employee_id or '—'}) "
+            f"was blocked trying to use the portal from {reason}. If this was a "
+            f"genuine new device, reset their registered device from their profile.",
+            link=f"/accounts/employees/{user.pk}/",
+        )
         logout(request)
         html = render_to_string("device_blocked.html", {})
         return HttpResponse(html, status=403)
+
+
+class SingleSessionMiddleware:
+    """Allow only ONE active session per non-admin account.
+
+    The latest sign-in wins. ``CustomUser.current_session_key`` records the
+    session of the most recent login; any request arriving on a different
+    (older) session — a second browser, or a copied/shared login — is signed
+    out on its next request. Admins/superusers are exempt.
+    """
+
+    _EXEMPT_PREFIXES = ("/static/", "/media/")
+    _EXEMPT_PATHS = (
+        "/accounts/login/",
+        "/accounts/logout/",
+        "/accounts/ip-debug/",
+    )
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        user = getattr(request, "user", None)
+        if (
+            not user_is_device_locked(user)
+            or request.path in self._EXEMPT_PATHS
+            or request.path.startswith(self._EXEMPT_PREFIXES)
+        ):
+            return self.get_response(request)
+
+        registered = getattr(user, "current_session_key", None)
+        current = request.session.session_key
+        # Only enforce once a login has recorded a key for this account.
+        if registered and current and current != registered:
+            logout(request)
+            messages.info(
+                request,
+                "You were signed out because this account was signed in on "
+                "another device or browser. Only one active session is allowed.",
+            )
+            return redirect(reverse("accounts:login"))
+        return self.get_response(request)
 
 
 # Matches phones and tablets. Desktops/laptops (Windows, macOS, Linux,

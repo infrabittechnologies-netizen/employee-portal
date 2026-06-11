@@ -61,6 +61,7 @@ def login_view(request):
         from employee_portal.middleware import (
             user_is_ip_restricted, request_ip_allowed, get_client_ip,
             user_is_device_locked, DEVICE_COOKIE_NAME, DEVICE_COOKIE_MAX_AGE,
+            ua_signature,
         )
         if user_is_ip_restricted(user) and not request_ip_allowed(request):
             ip = get_client_ip(request) or 'unknown'
@@ -77,6 +78,8 @@ def login_view(request):
         from django.utils import timezone
 
         device_cookie = request.COOKIES.get(DEVICE_COOKIE_NAME)
+        cur_ua = request.META.get('HTTP_USER_AGENT', '')
+        cur_ip = get_client_ip(request)
         set_device_cookie = None  # token to write onto the response, if any
 
         if user_is_device_locked(user):
@@ -84,10 +87,13 @@ def login_view(request):
                 # First ever sign-in → register THIS device permanently.
                 token = device_cookie or uuid.uuid4().hex
                 user.device_id = token
-                user.device_user_agent = request.META.get('HTTP_USER_AGENT', '')[:300]
+                user.device_user_agent = cur_ua[:300]
                 user.device_registered_at = timezone.now()
+                user.device_last_ip = cur_ip or ''
+                user.device_last_seen = timezone.now()
                 user.save(update_fields=[
                     'device_id', 'device_user_agent', 'device_registered_at',
+                    'device_last_ip', 'device_last_seen',
                 ])
                 set_device_cookie = token
             elif device_cookie != user.device_id:
@@ -100,11 +106,38 @@ def login_view(request):
                     'a new device, ask your administrator to reset it.'
                 )
                 return render(request, 'accounts/login.html', {'form': form})
+            elif (
+                user.device_user_agent and cur_ua
+                and ua_signature(cur_ua) != ua_signature(user.device_user_agent)
+            ):
+                # Right cookie but a different browser/OS → copied cookie.
+                messages.error(
+                    request,
+                    'This account is locked to its registered device and browser. '
+                    'Please sign in from your own registered setup, or ask your '
+                    'administrator to reset your device.'
+                )
+                return render(request, 'accounts/login.html', {'form': form})
             else:
                 # Same device → keep the cookie fresh (refresh expiry).
                 set_device_cookie = user.device_id
+                user.device_last_ip = cur_ip or user.device_last_ip
+                user.device_last_seen = timezone.now()
+                user.save(update_fields=['device_last_ip', 'device_last_seen'])
 
         login(request, user)
+
+        # ---- Single active session: the latest login supersedes the rest ----
+        if user_is_device_locked(user):
+            from django.contrib.sessions.models import Session
+
+            new_key = request.session.session_key
+            old_key = user.current_session_key
+            if old_key and old_key != new_key:
+                Session.objects.filter(session_key=old_key).delete()
+            user.current_session_key = new_key
+            user.save(update_fields=['current_session_key'])
+
         messages.success(request, f'Welcome back, {user.get_full_name() or user.username}!')
         next_url = request.GET.get('next', 'dashboard:dashboard')
         response = redirect(next_url)

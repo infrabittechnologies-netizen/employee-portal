@@ -46,6 +46,8 @@ MIDDLEWARE = [
     # Binds each non-admin account to one device and enforces it on every
     # request (employees can't have a colleague log in on another laptop).
     'employee_portal.middleware.DeviceLockMiddleware',
+    # One active session per non-admin account (latest login wins).
+    'employee_portal.middleware.SingleSessionMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'employee_portal.middleware.DesktopOnlyMiddleware',

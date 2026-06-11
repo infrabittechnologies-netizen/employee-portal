@@ -40,6 +40,15 @@ class CustomUser(AbstractUser):
     device_id = models.CharField(max_length=64, blank=True, null=True)
     device_user_agent = models.CharField(max_length=300, blank=True)
     device_registered_at = models.DateTimeField(null=True, blank=True)
+    # Last IP/time this device was seen — used to spot a copied cookie being
+    # used from two places (impossible-travel / concurrent-use detection).
+    device_last_ip = models.CharField(max_length=45, blank=True)
+    device_last_seen = models.DateTimeField(null=True, blank=True)
+
+    # ---- Single active session per account ---------------------------------
+    # The session key of the latest sign-in. A new login supersedes the old
+    # one, and any request from a stale session is signed out.
+    current_session_key = models.CharField(max_length=40, blank=True, null=True)
 
     def __str__(self):
         return f"{self.get_full_name() or self.username} ({self.employee_id or 'No ID'})"
