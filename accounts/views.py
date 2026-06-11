@@ -84,6 +84,32 @@ def logout_view(request):
     return redirect('accounts:login')
 
 
+def ip_debug_view(request):
+    """Diagnostics: show exactly what the portal sees for the caller's IP.
+
+    Exempt from the IP allow-list (see IPWhitelistMiddleware._EXEMPT_PATHS) so
+    it is reachable from any network. Open this from an approved network AND
+    from a blocked one to compare the raw proxy headers and the computed IP.
+    """
+    from django.http import JsonResponse
+    from django.conf import settings
+    from employee_portal.middleware import get_client_ip, request_ip_allowed
+
+    data = {
+        'computed_client_ip': get_client_ip(request),
+        'request_ip_allowed': request_ip_allowed(request),
+        'allowed_ips_configured': list(getattr(settings, 'PORTAL_ALLOWED_IPS', [])),
+        'xff_index_setting': getattr(settings, 'PORTAL_IP_XFF_INDEX', None),
+        'headers': {
+            'X-Forwarded-For': request.META.get('HTTP_X_FORWARDED_FOR'),
+            'X-Envoy-External-Address': request.META.get('HTTP_X_ENVOY_EXTERNAL_ADDRESS'),
+            'X-Real-IP': request.META.get('HTTP_X_REAL_IP'),
+            'REMOTE_ADDR': request.META.get('REMOTE_ADDR'),
+        },
+    }
+    return JsonResponse(data, json_dumps_params={'indent': 2})
+
+
 # ---------------------------------------------------------------------------
 # Profile (own account)
 # ---------------------------------------------------------------------------

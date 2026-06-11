@@ -7,6 +7,7 @@ urlpatterns = [
     # Authentication
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
+    path('ip-debug/', views.ip_debug_view, name='ip_debug'),
 
     # Own profile
     path('profile/', views.profile_view, name='profile'),

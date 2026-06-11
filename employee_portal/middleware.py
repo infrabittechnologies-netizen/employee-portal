@@ -14,38 +14,59 @@ from django.urls import reverse
 # IP allow-list helpers (reused by the middleware AND the login view)
 # ---------------------------------------------------------------------------
 
+def _is_public(token):
+    try:
+        ip = ipaddress.ip_address(token)
+    except ValueError:
+        return False
+    return not (ip.is_private or ip.is_loopback)
+
+
 def get_client_ip(request):
     """Return the visitor's public client IP, or None for internal requests.
 
-    On Railway the edge proxy sets ``X-Forwarded-For``. We read the right-most
-    PUBLIC address in that chain — the value the trusted proxy actually
-    observed — so a client cannot spoof the header by prepending an approved
-    IP. ``settings.PORTAL_IP_XFF_INDEX`` (if set) forces a fixed position.
+    Resolution order (Railway / Envoy edge proxy):
+
+    1. ``X-Envoy-External-Address`` — Envoy (Railway's edge) sets this to the
+       single real client address it observed. It is NOT client-controllable,
+       so it is the most trustworthy source and we use it first.
+    2. ``X-Forwarded-For`` — the real visitor is the LEFT-most entry; Railway
+       appends its own proxy hop(s) on the right. We walk from the LEFT and
+       return the first PUBLIC address. ``settings.PORTAL_IP_XFF_INDEX`` (if
+       set to an integer) forces a fixed position instead.
+    3. ``X-Real-IP`` — some proxies set this single value.
 
     None is returned when there is no forwarded chain at all (Railway health
     check on "/", the local dev server, or the test client) or when the whole
     chain is private — i.e. platform-internal traffic.
     """
+    # 1. Envoy's trusted, non-spoofable real-client address.
+    envoy = request.META.get("HTTP_X_ENVOY_EXTERNAL_ADDRESS", "").strip()
+    if envoy and _is_public(envoy):
+        return envoy
+
     xff = request.META.get("HTTP_X_FORWARDED_FOR", "")
     parts = [p.strip() for p in xff.split(",") if p.strip()]
-    if not parts:
-        return None
 
-    idx = getattr(settings, "PORTAL_IP_XFF_INDEX", None)
-    if idx is not None:
-        try:
-            return parts[idx]
-        except IndexError:
-            pass
+    if parts:
+        idx = getattr(settings, "PORTAL_IP_XFF_INDEX", None)
+        if idx is not None:
+            try:
+                return parts[idx]
+            except IndexError:
+                pass
 
-    for token in reversed(parts):
-        try:
-            ip = ipaddress.ip_address(token)
-        except ValueError:
-            continue
-        if not (ip.is_private or ip.is_loopback):
-            return token
-    return None  # whole chain private → internal
+        # Real visitor is left-most on Railway; return first PUBLIC entry.
+        for token in parts:
+            if _is_public(token):
+                return token
+
+    # 3. Fallback single-value headers.
+    real_ip = request.META.get("HTTP_X_REAL_IP", "").strip()
+    if real_ip and _is_public(real_ip):
+        return real_ip
+
+    return None  # no public client found → internal / health check / local
 
 
 def _allowed_networks():
@@ -109,7 +130,13 @@ class IPWhitelistMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
 
+    # Diagnostics endpoint must always be reachable so an admin can read the
+    # exact headers Railway sends from any network when debugging the allow-list.
+    _EXEMPT_PATHS = ("/accounts/ip-debug/",)
+
     def __call__(self, request):
+        if request.path in self._EXEMPT_PATHS:
+            return self.get_response(request)
         user = getattr(request, "user", None)
         if user_is_ip_restricted(user) and not request_ip_allowed(request):
             client_ip = get_client_ip(request)
