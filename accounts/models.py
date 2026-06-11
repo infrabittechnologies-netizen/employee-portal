@@ -34,6 +34,13 @@ class CustomUser(AbstractUser):
     manager = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='subordinates')
     basic_salary = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
+    # ---- Device lock (one registered device per account) -------------------
+    # The first device an employee signs in from is bound to the account for
+    # life. Any other device is rejected at login until an admin resets it.
+    device_id = models.CharField(max_length=64, blank=True, null=True)
+    device_user_agent = models.CharField(max_length=300, blank=True)
+    device_registered_at = models.DateTimeField(null=True, blank=True)
+
     def __str__(self):
         return f"{self.get_full_name() or self.username} ({self.employee_id or 'No ID'})"
 

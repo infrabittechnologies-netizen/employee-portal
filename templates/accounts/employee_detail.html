@@ -47,6 +47,16 @@
         <i class="fas {% if employee.is_active %}fa-user-slash{% else %}fa-user-check{% endif %} me-2"></i>
         {% if employee.is_active %}Deactivate{% else %}Activate{% endif %}
       </a>
+      <form method="post" action="{% url 'accounts:employee_reset_device' employee.pk %}"
+            class="d-inline"
+            onsubmit="return confirm('Reset this employee\'s registered device? The next laptop they log in from will become their new permanent device.');">
+        {% csrf_token %}
+        <button type="submit"
+                class="btn btn-sm {% if employee.device_id %}btn-outline-warning{% else %}btn-outline-secondary{% endif %}"
+                {% if not employee.device_id %}title="No device registered yet"{% endif %}>
+          <i class="fas fa-laptop me-2"></i>Reset Device
+        </button>
+      </form>
       {% endif %}
     </div>
   </div>
@@ -133,6 +143,19 @@
               <dd class="col-7">{{ employee.manager.get_full_name|default:"—" }}</dd>
               <dt class="col-5 text-muted">Basic Salary</dt>
               <dd class="col-7 fw-medium">{% if employee.basic_salary %}PKR {{ employee.basic_salary|floatformat:0 }}{% else %}—{% endif %}</dd>
+              <dt class="col-5 text-muted">Registered Device</dt>
+              <dd class="col-7">
+                {% if employee.device_id %}
+                  <span class="badge rounded-pill px-2 py-1 text-xs bg-success">
+                    <i class="fas fa-laptop me-1"></i>Locked
+                  </span>
+                  {% if employee.device_registered_at %}
+                    <span class="text-muted text-xs d-block mt-1">since {{ employee.device_registered_at|date:"M j, Y" }}</span>
+                  {% endif %}
+                {% else %}
+                  <span class="badge rounded-pill px-2 py-1 text-xs bg-secondary">Not set</span>
+                {% endif %}
+              </dd>
             </dl>
           </div>
         </div>

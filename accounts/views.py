@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
@@ -59,6 +60,7 @@ def login_view(request):
         # (managers and employees) is limited to the approved office network.
         from employee_portal.middleware import (
             user_is_ip_restricted, request_ip_allowed, get_client_ip,
+            user_is_device_locked, DEVICE_COOKIE_NAME, DEVICE_COOKIE_MAX_AGE,
         )
         if user_is_ip_restricted(user) and not request_ip_allowed(request):
             ip = get_client_ip(request) or 'unknown'
@@ -70,10 +72,52 @@ def login_view(request):
             )
             return render(request, 'accounts/login.html', {'form': form})
 
+        # ---- Device lock: each account is bound to ONE device for life -----
+        import uuid
+        from django.utils import timezone
+
+        device_cookie = request.COOKIES.get(DEVICE_COOKIE_NAME)
+        set_device_cookie = None  # token to write onto the response, if any
+
+        if user_is_device_locked(user):
+            if not user.device_id:
+                # First ever sign-in → register THIS device permanently.
+                token = device_cookie or uuid.uuid4().hex
+                user.device_id = token
+                user.device_user_agent = request.META.get('HTTP_USER_AGENT', '')[:300]
+                user.device_registered_at = timezone.now()
+                user.save(update_fields=[
+                    'device_id', 'device_user_agent', 'device_registered_at',
+                ])
+                set_device_cookie = token
+            elif device_cookie != user.device_id:
+                # A different device → reject. Friend's laptop has no matching
+                # cookie, so this blocks shared/borrowed-laptop check-ins.
+                messages.error(
+                    request,
+                    'This account is locked to its registered device. You can '
+                    'only sign in from your own registered laptop. If you have '
+                    'a new device, ask your administrator to reset it.'
+                )
+                return render(request, 'accounts/login.html', {'form': form})
+            else:
+                # Same device → keep the cookie fresh (refresh expiry).
+                set_device_cookie = user.device_id
+
         login(request, user)
         messages.success(request, f'Welcome back, {user.get_full_name() or user.username}!')
         next_url = request.GET.get('next', 'dashboard:dashboard')
-        return redirect(next_url)
+        response = redirect(next_url)
+        if set_device_cookie:
+            response.set_cookie(
+                DEVICE_COOKIE_NAME,
+                set_device_cookie,
+                max_age=DEVICE_COOKIE_MAX_AGE,
+                httponly=True,
+                samesite='Lax',
+                secure=not settings.DEBUG,
+            )
+        return response
 
     return render(request, 'accounts/login.html', {'form': form})
 
@@ -604,5 +648,31 @@ def employee_reset_data_view(request, pk):
             f"The account is intact and now has a clean history."
         )
         return redirect('accounts:employee_list')
+
+    return redirect('accounts:employee_detail', pk=employee.pk)
+
+
+@admin_required
+def employee_reset_device_view(request, pk):
+    """Clear an employee's registered device so they can bind a new one.
+
+    Use this when an employee genuinely gets a new laptop. The next device
+    they sign in from becomes their new permanent registered device.
+    """
+    employee = get_object_or_404(CustomUser, pk=pk)
+
+    if request.method == 'POST':
+        display_name = employee.get_full_name() or employee.username
+        employee.device_id = None
+        employee.device_user_agent = ''
+        employee.device_registered_at = None
+        employee.save(update_fields=[
+            'device_id', 'device_user_agent', 'device_registered_at',
+        ])
+        messages.success(
+            request,
+            f"Registered device for {display_name} has been reset. The next "
+            f"device they sign in from will become their new registered device."
+        )
 
     return redirect('accounts:employee_detail', pk=employee.pk)

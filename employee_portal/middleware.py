@@ -115,6 +115,28 @@ def user_is_ip_restricted(user):
     return True
 
 
+# ---------------------------------------------------------------------------
+# Device lock helpers (one registered device per account)
+# ---------------------------------------------------------------------------
+
+DEVICE_COOKIE_NAME = "portal_device_id"
+DEVICE_COOKIE_MAX_AGE = 10 * 365 * 24 * 3600  # ~10 years ("lifetime")
+
+
+def user_is_device_locked(user):
+    """Which users are bound to a single registered device.
+
+    Same policy as the IP allow-list: only the **admin** role / superuser is
+    exempt (so the owner can manage the team from any laptop). Managers and
+    employees are each locked to the first device they sign in from.
+    """
+    if not user or not user.is_authenticated:
+        return False
+    if getattr(user, "is_admin", False):
+        return False
+    return True
+
+
 class IPWhitelistMiddleware:
     """Restrict ORDINARY EMPLOYEES to the approved office IP addresses.
 
