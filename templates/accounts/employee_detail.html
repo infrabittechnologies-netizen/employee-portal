@@ -47,16 +47,12 @@
         <i class="fas {% if employee.is_active %}fa-user-slash{% else %}fa-user-check{% endif %} me-2"></i>
         {% if employee.is_active %}Deactivate{% else %}Activate{% endif %}
       </a>
-      <form method="post" action="{% url 'accounts:employee_reset_device' employee.pk %}"
-            class="d-inline"
-            onsubmit="return confirm('Reset this employee\'s registered device? The next laptop they log in from will become their new permanent device.');">
-        {% csrf_token %}
-        <button type="submit"
-                class="btn btn-sm {% if employee.device_id %}btn-outline-warning{% else %}btn-outline-secondary{% endif %}"
-                {% if not employee.device_id %}title="No device registered yet"{% endif %}>
-          <i class="fas fa-laptop me-2"></i>Reset Device
-        </button>
-      </form>
+      <button type="button"
+              class="btn btn-sm {% if employee.device_id %}btn-outline-warning{% else %}btn-outline-secondary{% endif %}"
+              data-bs-toggle="modal" data-bs-target="#resetDeviceModal"
+              {% if not employee.device_id %}title="No device registered yet"{% endif %}>
+        <i class="fas fa-laptop me-2"></i>Reset Device
+      </button>
       {% endif %}
     </div>
   </div>
@@ -637,6 +633,46 @@
     </form>
   </div>
 </div>
+
+{% if request.user.is_admin %}
+<!-- Reset Device Modal -->
+<div class="modal fade" id="resetDeviceModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form method="post" action="{% url 'accounts:employee_reset_device' employee.pk %}">
+      {% csrf_token %}
+      <div class="modal-content" style="border:none;border-radius:14px;overflow:hidden;">
+        <div class="modal-header bg-warning text-dark">
+          <h5 class="modal-title"><i class="fas fa-laptop me-2"></i>Reset Registered Device</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body p-4">
+          <p class="mb-2">Reset the registered device for
+            <strong>{{ employee.get_full_name|default:employee.username }}</strong>?</p>
+          {% if employee.device_id %}
+          <div class="p-3 rounded-3" style="background:#fffbeb;border:1px solid #fde68a;">
+            <div class="fw-bold text-dark"><i class="fas fa-laptop me-1"></i>Currently locked device</div>
+            <div class="text-xs text-muted">
+              Registered{% if employee.device_registered_at %} since {{ employee.device_registered_at|date:"M j, Y" }}{% endif %}
+            </div>
+          </div>
+          {% else %}
+          <div class="p-3 rounded-3" style="background:#f8fafc;border:1px solid #e2e8f0;">
+            <div class="text-muted text-sm"><i class="fas fa-info-circle me-1"></i>No device is registered yet.</div>
+          </div>
+          {% endif %}
+          <div class="alert alert-warning text-xs mt-3 mb-0">
+            <i class="fas fa-triangle-exclamation me-1"></i>The next laptop this employee signs in from will become their new permanent registered device. Use this only when they have genuinely changed devices.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-warning"><i class="fas fa-rotate-right me-1"></i>Reset Device</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
 
 <!-- Base Salary Modal -->
 <div class="modal fade" id="baseSalaryModal" tabindex="-1" aria-hidden="true">
