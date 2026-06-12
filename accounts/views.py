@@ -56,22 +56,11 @@ def login_view(request):
     if request.method == 'POST' and form.is_valid():
         user = form.cleaned_data['user']
 
-        # Only the admin role may sign in from anywhere. Everyone else
-        # (managers and employees) is limited to the approved office network.
         from employee_portal.middleware import (
-            user_is_ip_restricted, request_ip_allowed, get_client_ip,
+            get_client_ip,
             user_is_device_locked, DEVICE_COOKIE_NAME, DEVICE_COOKIE_MAX_AGE,
             ua_signature,
         )
-        if user_is_ip_restricted(user) and not request_ip_allowed(request):
-            ip = get_client_ip(request) or 'unknown'
-            messages.error(
-                request,
-                f'Access denied: this account can only sign in from an approved '
-                f'office network. Your IP ({ip}) is not authorized. Please '
-                f'contact your administrator.'
-            )
-            return render(request, 'accounts/login.html', {'form': form})
 
         # ---- Device lock: each account is bound to ONE device for life -----
         import uuid

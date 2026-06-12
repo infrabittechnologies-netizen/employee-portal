@@ -40,9 +40,8 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    # Runs after auth so it knows the role: only ordinary employees are
-    # limited to the approved office IPs; admins can sign in from anywhere.
-    'employee_portal.middleware.IPWhitelistMiddleware',
+    # IP allow-list disabled — office-only restriction removed per request.
+    # (IPWhitelistMiddleware intentionally not registered.)
     # Binds each non-admin account to one device and enforces it on every
     # request (employees can't have a colleague log in on another laptop).
     'employee_portal.middleware.DeviceLockMiddleware',
