@@ -285,9 +285,11 @@
   </footer>
 </main>
 
-{% if user.is_authenticated and not user.is_admin %}
+{% if user.is_authenticated and not user.is_admin and not enforce_working_hours %}
 <!-- Auto-logout: employees are signed out 10 min after shift end (11:10 PM PKT).
-     This open-tab timer is a courtesy; the server middleware enforces it too. -->
+     This open-tab timer is a courtesy; the server middleware enforces it too.
+     Disabled for tenants that enforce working hours — they stay logged in after
+     the shift (view-only + leave application). -->
 <form id="autoLogoutForm" method="post" action="{% url 'accounts:logout' %}" class="d-none">{% csrf_token %}</form>
 <script>
   (function () {
@@ -327,6 +329,62 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 <!-- Custom JS -->
 <script src="{% static 'js/main.js' %}"></script>
+
+{% if work_locked %}
+<!-- Working-hours lock: portal stays viewable but attendance actions are blocked -->
+<div class="modal fade" id="workLockedModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-header bg-warning border-0">
+        <h5 class="modal-title text-dark">
+          <i class="fas fa-clock me-2"></i>Outside Working Hours
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-4 text-center">
+        <div class="mb-3" style="font-size:2.5rem;color:#f59e0b;">
+          <i class="fas fa-business-time"></i>
+        </div>
+        <p class="mb-2 fw-semibold">You can only work during office working hours.</p>
+        <p class="text-muted mb-0 text-sm">
+          Attendance actions (check-in, check-out, resume work) are available only
+          during <strong>{{ work_hours_label }}</strong>. You may keep viewing the
+          portal, but actions are disabled until the next working window.
+        </p>
+      </div>
+      <div class="modal-footer border-0 justify-content-center pb-4">
+        <button type="button" class="btn btn-warning px-4" data-bs-dismiss="modal">Got it</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  (function () {
+    var LOCK_IDS = ['checkInBtn', 'checkOutBtn', 'restartWorkBtn'];
+    function showWorkLockedPopup() {
+      var el = document.getElementById('workLockedModal');
+      if (el && window.bootstrap && bootstrap.Modal) {
+        bootstrap.Modal.getOrCreateInstance(el).show();
+      } else if (typeof showToast === 'function') {
+        showToast('You can only work during office working hours ({{ work_hours_label|escapejs }}).', 'error');
+      } else {
+        alert('You can only work during office working hours ({{ work_hours_label|escapejs }}).');
+      }
+    }
+    // Capture phase: intercept BEFORE the button's own inline onclick fires,
+    // so the actual check-in/out/resume action never runs.
+    document.addEventListener('click', function (e) {
+      var t = e.target && e.target.closest
+        ? e.target.closest('#checkInBtn, #checkOutBtn, #restartWorkBtn, [data-work-locked-action]')
+        : null;
+      if (!t) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      showWorkLockedPopup();
+    }, true);
+  })();
+</script>
+{% endif %}
 
 {% block extra_js %}{% endblock %}
 </body>

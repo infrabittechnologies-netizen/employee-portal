@@ -199,6 +199,7 @@
 </div>
 
 <!-- Sales Commission for Current Month -->
+{% if commission_enabled %}
 <div class="card mb-4 fade-in-up delay-2">
   <div class="card-header d-flex justify-content-between align-items-center">
     <div>
@@ -236,6 +237,7 @@
     </div>
   </div>
 </div>
+{% endif %}
 
 <!-- Past Payslips -->
 <div class="card fade-in-up delay-3">

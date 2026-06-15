@@ -11,14 +11,35 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from accounts.decorators import admin_required, manager_required
+from accounts.tenancy import scoped_user_qs
 from .models import Attendance, AttendanceBreak
 from .schedule import (
     is_weekend, get_shift_start, is_late_checkin, net_work_hours,
     get_break_status, get_post_break_status, is_too_early_checkin,
-    earliest_checkin_time, SHIFT_START, SHIFT_END, BREAKS, EARLY_CHECKIN_MINUTES,
+    earliest_checkin_time, resolve_schedule,
+    is_within_working_hours, working_hours_label,
 )
 
 User = get_user_model()
+
+
+def _working_hours_block(request, sched):
+    """If the tenant enforces working hours and we're outside the allowed
+    window, return a JSON 403 payload to abort an attendance action. Otherwise
+    return None so the caller proceeds normally."""
+    if getattr(sched, 'enforce_working_hours', False) and not is_within_working_hours(timezone.now(), sched):
+        return JsonResponse(
+            {
+                'success': False,
+                'work_locked': True,
+                'error': (
+                    'Outside working hours. You can only perform this action '
+                    f'during office working hours ({working_hours_label(sched)}).'
+                ),
+            },
+            status=403,
+        )
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -54,9 +75,15 @@ def check_in_view(request):
     """
     today = timezone.localdate()
     now   = timezone.localtime(timezone.now())
+    sched = resolve_schedule(request.user)
+
+    # ── Block actions outside the tenant's working-hours window ─────────────
+    blocked = _working_hours_block(request, sched)
+    if blocked:
+        return blocked
 
     # ── Block weekends ──────────────────────────────────────────────────────
-    if is_weekend(today):
+    if is_weekend(today, sched):
         day_name = today.strftime('%A')
         return JsonResponse(
             {'success': False, 'error': f'{day_name} is a holiday. Enjoy your day off!'},
@@ -64,16 +91,15 @@ def check_in_view(request):
         )
 
     # ── Block check-in that is too early ───────────────────────────────────
-    # Check-in opens EARLY_CHECKIN_MINUTES before the shift start (e.g. a
-    # 2:00 PM shift opens at 1:50 PM). Earlier attempts are rejected.
-    if is_too_early_checkin(now):
-        earliest = earliest_checkin_time(today)
+    # Check-in opens a few minutes before the shift start. Earlier attempts
+    # are rejected.
+    if is_too_early_checkin(now, sched):
+        earliest = earliest_checkin_time(today, sched)
         return JsonResponse(
             {
                 'success': False,
                 'error': (
-                    f'Check-in opens at {earliest.strftime("%I:%M %p")} '
-                    f'({EARLY_CHECKIN_MINUTES} minutes before your shift). '
+                    f'Check-in opens at {earliest.strftime("%I:%M %p")}. '
                     'Please try again then.'
                 ),
             },
@@ -111,7 +137,7 @@ def check_in_view(request):
     location   = request.POST.get('location', '').strip()
 
     # Determine late status using schedule helper (model.save() also does this)
-    late = is_late_checkin(now)
+    late = is_late_checkin(now, sched)
     status = 'late' if late else 'present'
 
     attendance = Attendance.objects.create(
@@ -125,7 +151,7 @@ def check_in_view(request):
     )
 
     ci_local = timezone.localtime(attendance.check_in)
-    shift_start = get_shift_start(today)
+    shift_start = get_shift_start(today, sched)
     return JsonResponse({
         'success': True,
         'message': 'Checked in successfully.',
@@ -149,6 +175,11 @@ def check_out_view(request):
     """
     today = timezone.localdate()
     now = timezone.localtime(timezone.now())
+
+    # ── Block actions outside the tenant's working-hours window ─────────────
+    blocked = _working_hours_block(request, resolve_schedule(request.user))
+    if blocked:
+        return blocked
 
     try:
         attendance = Attendance.objects.get(employee=request.user, date=today)
@@ -211,6 +242,11 @@ def restart_work_view(request):
     now_aware = timezone.now()
     now_local = timezone.localtime(now_aware)
 
+    # ── Block actions outside the tenant's working-hours window ─────────────
+    blocked = _working_hours_block(request, resolve_schedule(request.user))
+    if blocked:
+        return blocked
+
     attendance = Attendance.objects.filter(
         employee=request.user, date=today
     ).prefetch_related('break_restarts').first()
@@ -221,8 +257,9 @@ def restart_work_view(request):
             status=400,
         )
 
+    sched = resolve_schedule(request.user)
     restarted = set(attendance.break_restarts.values_list('break_number', flat=True))
-    post_break = get_post_break_status(now_aware, restarted)
+    post_break = get_post_break_status(now_aware, restarted, sched)
 
     if not post_break:
         return JsonResponse(
@@ -231,7 +268,7 @@ def restart_work_view(request):
         )
 
     break_num     = post_break['break_number']
-    scheduled_end = BREAKS[break_num - 1][1]   # time object, e.g. time(19, 15)
+    scheduled_end = sched.breaks[break_num - 1].end   # time object
 
     AttendanceBreak.objects.create(
         attendance    = attendance,
@@ -272,16 +309,17 @@ def day_summary_api(request):
     if not attendance or not attendance.check_in:
         return JsonResponse({'error': 'No check-in found for today.'}, status=400)
 
+    sched = resolve_schedule(request.user)
     ci_local = timezone.localtime(attendance.check_in)
 
     # Tentative net work hours if checkout NOW
-    tentative_net     = net_work_hours(attendance.check_in, now_aware)
+    tentative_net     = net_work_hours(attendance.check_in, now_aware, sched)
     net_mins          = int(tentative_net * 60)
     raw_mins          = int((now_local - ci_local).total_seconds() / 60)
     break_deducted    = max(0, raw_mins - net_mins)
 
     # Late minutes
-    shift_start = SHIFT_START.get(ci_local.weekday(), _dt.time(14, 0))
+    shift_start = get_shift_start(ci_local.weekday(), sched) or sched.shift_end
     ci_time     = ci_local.time()
     late_mins   = 0
     if ci_time > shift_start:
@@ -294,8 +332,9 @@ def day_summary_api(request):
         r.break_number: r for r in attendance.break_restarts.all()
     }
     breaks_data = []
-    for idx, (b_start, b_end) in enumerate(BREAKS):
+    for idx, bw in enumerate(sched.breaks):
         bn  = idx + 1
+        b_start, b_end = bw.start, bw.end
         rec = restarts_by_num.get(bn)
         b_dur_min = int(
             (_dt.datetime.combine(today, b_end) - _dt.datetime.combine(today, b_start))
@@ -303,6 +342,8 @@ def day_summary_api(request):
         )
         breaks_data.append({
             'break_number':    bn,
+            'label':           bw.label,
+            'deductible':      bw.deductible,
             'scheduled_start': b_start.strftime('%I:%M %p'),
             'scheduled_end':   b_end.strftime('%I:%M %p'),
             'duration_min':    b_dur_min,
@@ -374,6 +415,8 @@ def my_attendance_view(request):
 
     records_by_date = {r.date: r for r in records}
 
+    sched = resolve_schedule(request.user)
+
     # Build calendar grid (list of weeks, each week is a list of day dicts)
     cal = calendar.monthcalendar(year, month)
     calendar_weeks = []
@@ -390,7 +433,7 @@ def my_attendance_view(request):
                         'date': day_date,
                         'record': records_by_date.get(day_date),
                         'is_today': day_date == today,
-                        'is_weekend': day_date.weekday() in (5, 6),  # Sat, Sun
+                        'is_weekend': is_weekend(day_date, sched),
                         'is_future': day_date > today,
                     }
                 )
@@ -432,11 +475,11 @@ def my_attendance_view(request):
             today_record.break_restarts.values_list('break_number', flat=True)
         )
     break_info = (
-        get_break_status(restarted_break_numbers=restarted_breaks)
+        get_break_status(restarted_break_numbers=restarted_breaks, sched=sched)
         if _checked_in_active else None
     )
     post_break_info = (
-        get_post_break_status(restarted_break_numbers=restarted_breaks)
+        get_post_break_status(restarted_break_numbers=restarted_breaks, sched=sched)
         if _checked_in_active and not break_info
         else None
     )
@@ -500,8 +543,11 @@ def attendance_report_view(request):
         messages.error(request, 'You do not have permission to access this page.')
         return redirect('dashboard:dashboard')
 
+    from accounts.tenancy import scoped_user_qs
+    tenant_users = scoped_user_qs(request.user)
+
     today = timezone.localdate()
-    queryset = Attendance.objects.select_related('employee').order_by('-date', 'employee')
+    queryset = Attendance.objects.filter(employee__in=tenant_users).select_related('employee').order_by('-date', 'employee')
 
     # --- Filters ---
     employee_id = request.GET.get('employee')
@@ -531,7 +577,7 @@ def attendance_report_view(request):
     if not date_from and not date_to:
         queryset = queryset.filter(date__year=today.year, date__month=today.month)
 
-    employees = User.objects.filter(is_active=True).order_by('first_name', 'last_name')
+    employees = tenant_users.filter(is_active=True).order_by('first_name', 'last_name')
 
     # Summary stats for the filtered set
     total_records = queryset.count()
@@ -579,7 +625,7 @@ def mark_absent_view(request, pk=None):
             return redirect('attendance:mark_absent')
 
         try:
-            employee = User.objects.get(pk=employee_id, is_active=True)
+            employee = scoped_user_qs(request.user).get(pk=employee_id, is_active=True)
         except User.DoesNotExist:
             messages.error(request, 'Employee not found.')
             return redirect('attendance:mark_absent')
@@ -613,7 +659,7 @@ def mark_absent_view(request, pk=None):
         return redirect('attendance:attendance_report')
 
     # GET – render the form
-    employees = User.objects.filter(is_active=True).order_by('first_name', 'last_name')
+    employees = scoped_user_qs(request.user).filter(is_active=True).order_by("first_name", "last_name")
     context = {
         'employees': employees,
         'today': timezone.localdate(),
@@ -657,7 +703,7 @@ def manage_attendance_view(request, pk=None):
             return redirect(request.path)
 
         try:
-            employee = User.objects.get(pk=employee_id, is_active=True)
+            employee = scoped_user_qs(request.user).get(pk=employee_id, is_active=True)
         except User.DoesNotExist:
             messages.error(request, 'Employee not found.')
             return redirect(request.path)
@@ -759,7 +805,7 @@ def manage_attendance_view(request, pk=None):
         return redirect('attendance:attendance_report')
 
     # --- GET: render the form ---
-    employees = User.objects.filter(is_active=True).order_by('first_name', 'last_name')
+    employees = scoped_user_qs(request.user).filter(is_active=True).order_by("first_name", "last_name")
 
     # Prefill values (editing an existing record, or query-param hints when adding)
     if record:

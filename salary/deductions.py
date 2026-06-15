@@ -34,7 +34,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from django.utils import timezone
 
 from attendance.schedule import (
-    SHIFT_START, SHIFT_END, BREAKS, is_weekend, get_shift_start,
+    is_weekend, get_shift_start, resolve_schedule, DEFAULT_SCHEDULE,
 )
 
 # Arbitrary anchor date for time-only arithmetic.
@@ -55,17 +55,18 @@ def _mins(start_t: datetime.time, end_t: datetime.time) -> float:
     return max(0.0, delta)
 
 
-def _paid_minutes_in_interval(start_t: datetime.time, end_t: datetime.time) -> float:
+def _paid_minutes_in_interval(start_t, end_t, sched=None) -> float:
     """
     Minutes between start_t and end_t that are *paid* — i.e. excluding any
     scheduled break windows that overlap the interval.
     """
+    sched = sched or DEFAULT_SCHEDULE
     if end_t <= start_t:
         return 0.0
     total = _mins(start_t, end_t)
-    for b_start, b_end in BREAKS:
-        ov_s = max(start_t, b_start)
-        ov_e = min(end_t, b_end)
+    for bw in sched.breaks:
+        ov_s = max(start_t, bw.start)
+        ov_e = min(end_t, bw.end)
         if ov_s < ov_e:
             total -= _mins(ov_s, ov_e)
     return max(0.0, total)
@@ -75,42 +76,45 @@ def _paid_minutes_in_interval(start_t: datetime.time, end_t: datetime.time) -> f
 # Rates
 # ---------------------------------------------------------------------------
 
-def working_days_in_month(year: int, month: int) -> int:
-    """Calendar days in the month excluding Saturdays and Sundays."""
+def working_days_in_month(year: int, month: int, sched=None) -> int:
+    """Calendar days in the month excluding the tenant's non-working days."""
+    sched = sched or DEFAULT_SCHEDULE
     _, ndays = calendar.monthrange(year, month)
     return sum(
         1 for day in range(1, ndays + 1)
-        if not is_weekend(datetime.date(year, month, day))
+        if not is_weekend(datetime.date(year, month, day), sched)
     )
 
 
-def scheduled_paid_minutes(d) -> float:
+def scheduled_paid_minutes(d, sched=None) -> float:
     """Paid (worked) minutes scheduled for the given date's shift."""
-    start = get_shift_start(d)
+    sched = sched or DEFAULT_SCHEDULE
+    start = get_shift_start(d, sched)
     if not start:
         return 0.0
-    return _paid_minutes_in_interval(start, SHIFT_END)
+    return _paid_minutes_in_interval(start, sched.shift_end, sched)
 
 
-def daily_rate(monthly_salary, year: int, month: int) -> Decimal:
-    wd = working_days_in_month(year, month)
+def daily_rate(monthly_salary, year: int, month: int, sched=None) -> Decimal:
+    wd = working_days_in_month(year, month, sched)
     if wd <= 0:
         return Decimal('0')
     return Decimal(monthly_salary) / Decimal(wd)
 
 
-def per_minute_rate(monthly_salary, d) -> Decimal:
-    paid_min = scheduled_paid_minutes(d)
+def per_minute_rate(monthly_salary, d, sched=None) -> Decimal:
+    paid_min = scheduled_paid_minutes(d, sched)
     if paid_min <= 0:
         return Decimal('0')
-    return daily_rate(monthly_salary, d.year, d.month) / Decimal(str(paid_min))
+    return daily_rate(monthly_salary, d.year, d.month, sched) / Decimal(str(paid_min))
 
 
 # ---------------------------------------------------------------------------
 # Per-day deduction
 # ---------------------------------------------------------------------------
 
-def _empty_result(d, monthly_salary):
+def _empty_result(d, monthly_salary, sched=None):
+    sched = sched or DEFAULT_SCHEDULE
     return {
         'date': d,
         'reason': 'other',
@@ -122,7 +126,7 @@ def _empty_result(d, monthly_salary):
         'early_amount': Decimal('0.00'),
         'break_amount': Decimal('0.00'),
         'amount': Decimal('0.00'),
-        'daily_rate': _q2(daily_rate(monthly_salary, d.year, d.month)) if not is_weekend(d) else Decimal('0.00'),
+        'daily_rate': _q2(daily_rate(monthly_salary, d.year, d.month, sched)) if not is_weekend(d, sched) else Decimal('0.00'),
         'description': '',
     }
 
@@ -151,16 +155,17 @@ def deduction_for_attendance(attendance, *, tentative_checkout=None) -> dict:
     is actually saved.
     """
     employee = attendance.employee
+    sched = resolve_schedule(employee)
     monthly = Decimal(employee.basic_salary or 0)
     d = attendance.date
-    result = _empty_result(d, monthly)
+    result = _empty_result(d, monthly, sched)
 
     # Weekends are not working days — never deducted.
-    if is_weekend(d):
+    if is_weekend(d, sched):
         return result
 
     status = attendance.status
-    dr = daily_rate(monthly, d.year, d.month)
+    dr = daily_rate(monthly, d.year, d.month, sched)
 
     # ----- Full-day deductions --------------------------------------------
     if status == 'absent':
@@ -187,21 +192,30 @@ def deduction_for_attendance(attendance, *, tentative_checkout=None) -> dict:
 
         ci_t = timezone.localtime(check_in).time()
         co_t = timezone.localtime(check_out).time()
-        start = get_shift_start(d)
-        end = SHIFT_END
+        start = get_shift_start(d, sched)
+        end = sched.shift_end
+        if not start:
+            return result  # not a working day for this tenant
 
-        late_min = _paid_minutes_in_interval(start, ci_t) if ci_t > start else 0.0
-        early_min = _paid_minutes_in_interval(co_t, end) if co_t < end else 0.0
+        late_min = _paid_minutes_in_interval(start, ci_t, sched) if ci_t > start else 0.0
+        early_min = _paid_minutes_in_interval(co_t, end, sched) if co_t < end else 0.0
 
+        # Break overstay is only penalised for *deductible* breaks. Tenants
+        # whose breaks are free time (e.g. lunch / namaz) never get a break
+        # deduction.
+        deductible_break_nums = {
+            i + 1 for i, bw in enumerate(sched.breaks) if bw.deductible
+        }
         try:
             break_delay = sum(
                 b.delay_minutes for b in attendance.break_restarts.all()
+                if b.break_number in deductible_break_nums
             )
         except Exception:
             break_delay = 0
         break_min = max(0, int(break_delay))
 
-        pmr = per_minute_rate(monthly, d)
+        pmr = per_minute_rate(monthly, d, sched)
         late_amt = pmr * Decimal(str(late_min))
         early_amt = pmr * Decimal(str(early_min))
         break_amt = pmr * Decimal(str(break_min))
@@ -293,12 +307,13 @@ def month_deduction_summary(employee, year: int, month: int) -> dict:
             early_min += r['early_minutes']
             break_min += r['break_minutes']
 
+    sched = resolve_schedule(employee)
     return {
         'items': items,
         'total': _q2(total),
         'total_late_minutes': late_min,
         'total_early_minutes': early_min,
         'total_break_minutes': break_min,
-        'working_days': working_days_in_month(year, month),
-        'daily_rate': _q2(daily_rate(employee.basic_salary or 0, year, month)),
+        'working_days': working_days_in_month(year, month, sched),
+        'daily_rate': _q2(daily_rate(employee.basic_salary or 0, year, month, sched)),
     }

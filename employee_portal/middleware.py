@@ -449,9 +449,16 @@ class EmployeeAutoLogoutMiddleware:
             and not user.is_admin
             and not request.path.startswith(self._EXEMPT_PREFIXES)
         ):
-            from attendance.schedule import is_past_auto_logout
+            from attendance.schedule import is_past_auto_logout, resolve_schedule
 
-            if is_past_auto_logout():
+            sched = resolve_schedule(user)
+            # Tenants that enforce working hours keep the portal accessible
+            # after the shift (view-only + leave application); attendance
+            # actions are blocked separately. So we do NOT auto-logout them.
+            if getattr(sched, "enforce_working_hours", False):
+                return self.get_response(request)
+
+            if is_past_auto_logout(sched=sched):
                 logout(request)
                 messages.info(
                     request,

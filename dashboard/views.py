@@ -8,7 +8,7 @@ from performance.models import PerformanceReview
 from holidays.models import Holiday, Announcement
 from notifications_app.models import Notification
 from accounts.models import CustomUser, Department
-from attendance.schedule import get_break_status, get_post_break_status
+from attendance.schedule import get_break_status, get_post_break_status, resolve_schedule
 from salary.deductions import month_deduction_summary
 from decimal import Decimal
 import datetime
@@ -36,14 +36,15 @@ def dashboard_view(request):
         restarted_breaks = set(
             today_attendance.break_restarts.values_list('break_number', flat=True)
         )
+    _sched = resolve_schedule(user)
     break_info = (
-        get_break_status(restarted_break_numbers=restarted_breaks)
+        get_break_status(restarted_break_numbers=restarted_breaks, sched=_sched)
         if _checked_in_active else None
     )
 
     # Detect if a break just ended and employee hasn't restarted yet
     post_break_info = (
-        get_post_break_status(restarted_break_numbers=restarted_breaks)
+        get_post_break_status(restarted_break_numbers=restarted_breaks, sched=_sched)
         if _checked_in_active and not break_info
         else None
     )
@@ -177,19 +178,22 @@ def admin_dashboard_view(request):
     if not (request.user.is_admin or request.user.is_superuser or request.user.is_manager_role):
         return redirect('dashboard:dashboard')
 
+    from accounts.tenancy import scoped_user_qs
+    tenant_users = scoped_user_qs(request.user)
+
     today = timezone.now().date()
-    total_employees = CustomUser.objects.filter(is_active=True, role__in=['employee', 'manager']).count()
+    total_employees = tenant_users.filter(is_active=True, role__in=['employee', 'manager']).count()
     total_departments = Department.objects.count()
-    present_today = Attendance.objects.filter(date=today, status__in=['present', 'late']).count()
-    pending_leaves_count = LeaveApplication.objects.filter(status='pending').count()
+    present_today = Attendance.objects.filter(date=today, status__in=['present', 'late'], employee__in=tenant_users).count()
+    pending_leaves_count = LeaveApplication.objects.filter(status='pending', employee__in=tenant_users).count()
     departments = Department.objects.all()
-    dept_data = [{'name': d.name, 'count': d.employees.filter(is_active=True).count()} for d in departments]
+    dept_data = [{'name': d.name, 'count': tenant_users.filter(department=d, is_active=True).count()} for d in departments]
 
     # Today's check-in stats — a fresh graph every day. One bar per employee
     # who has checked in today, plotted by their check-in time (decimal hour),
     # coloured green (on time) or red (late).
     checkin_today = (
-        Attendance.objects.filter(date=today, check_in__isnull=False)
+        Attendance.objects.filter(date=today, check_in__isnull=False, employee__in=tenant_users)
         .select_related('employee')
         .order_by('check_in')
     )
@@ -203,13 +207,13 @@ def admin_dashboard_view(request):
             'is_late': bool(a.is_late),
         })
 
-    recent_employees = CustomUser.objects.filter(role__in=['employee', 'manager']).order_by('-date_joined')[:5]
-    todays_attendance = Attendance.objects.filter(date=today).select_related('employee').order_by('-check_in')[:10]
+    recent_employees = tenant_users.filter(role__in=['employee', 'manager']).order_by('-date_joined')[:5]
+    todays_attendance = Attendance.objects.filter(date=today, employee__in=tenant_users).select_related('employee').order_by('-check_in')[:10]
     recent_leaves = LeaveApplication.objects.filter(
-        status='pending'
+        status='pending', employee__in=tenant_users
     ).select_related('employee', 'leave_type').order_by('-applied_on')[:8]
     month_start = today.replace(day=1)
-    monthly_stats = Attendance.objects.filter(date__gte=month_start, date__lte=today)
+    monthly_stats = Attendance.objects.filter(date__gte=month_start, date__lte=today, employee__in=tenant_users)
     month_present = monthly_stats.filter(status__in=['present', 'late']).count()
     month_absent = monthly_stats.filter(status='absent').count()
     month_late = monthly_stats.filter(status='late').count()

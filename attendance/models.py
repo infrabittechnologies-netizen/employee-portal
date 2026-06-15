@@ -2,7 +2,7 @@ from django.db import models
 from django.conf import settings
 from django.utils import timezone
 
-from .schedule import is_late_checkin, net_work_hours
+from .schedule import is_late_checkin, net_work_hours, resolve_schedule
 
 
 class Attendance(models.Model):
@@ -34,11 +34,12 @@ class Attendance(models.Model):
         return f"{self.employee} - {self.date} ({self.status})"
 
     def save(self, *args, **kwargs):
+        sched = resolve_schedule(self.employee) if self.employee_id else None
         if self.check_in:
-            self.is_late = is_late_checkin(self.check_in)
+            self.is_late = is_late_checkin(self.check_in, sched)
             self.status = 'late' if self.is_late else 'present'
         if self.check_in and self.check_out:
-            self.work_hours = net_work_hours(self.check_in, self.check_out)
+            self.work_hours = net_work_hours(self.check_in, self.check_out, sched)
         super().save(*args, **kwargs)
 
 

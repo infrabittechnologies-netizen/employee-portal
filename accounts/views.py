@@ -16,6 +16,7 @@ from .forms import (
     ChangePasswordForm,
 )
 from .models import CustomUser, Department
+from .tenancy import scoped_user_qs, tenant_root, in_same_tenant
 
 
 # ---------------------------------------------------------------------------
@@ -265,11 +266,15 @@ def employee_list_view(request):
     department_filter = request.GET.get('department', '').strip()
     role_filter = request.GET.get('role', '').strip()
 
+    from .tenancy import scoped_user_qs
+
     if user.is_admin:
-        employees = CustomUser.objects.all()
+        # Tenant-scoped: an admin only ever sees the users they own.
+        employees = scoped_user_qs(user)
     else:
-        # Managers see their direct reports and department colleagues
-        employees = CustomUser.objects.filter(
+        # Managers see their direct reports and department colleagues,
+        # always within their own tenant.
+        employees = scoped_user_qs(user).filter(
             Q(manager=user) | Q(department=user.department)
         ).distinct()
 
@@ -310,12 +315,19 @@ def employee_list_view(request):
 @admin_required
 def employee_create_view(request):
     form = EmployeeRegistrationForm(request.POST or None)
+    # Tenant-scope the manager dropdown to this admin's own people.
+    form.fields['manager'].queryset = scoped_user_qs(request.user).filter(
+        role__in=['admin', 'manager'], is_active=True,
+    )
 
     if request.method == 'POST' and form.is_valid():
         employee = form.save(commit=False)
         # Auto-generate employee_id if not provided by the admin
         if not employee.employee_id:
             employee.employee_id = _generate_employee_id()
+        # Multi-tenant: the new user belongs to the creating admin's tenant.
+        from .tenancy import tenant_root
+        employee.owner = tenant_root(request.user) or request.user
         employee.save()
 
         # Notify the new employee
@@ -331,8 +343,11 @@ def employee_create_view(request):
             link=reverse('accounts:profile'),
         )
 
-        # Notify all admins about the new hire
-        admins = CustomUser.objects.filter(role='admin', is_active=True).exclude(pk=request.user.pk)
+        # Notify admins about the new hire — only within the same tenant.
+        from .tenancy import scoped_user_qs
+        admins = scoped_user_qs(request.user).filter(
+            role='admin', is_active=True,
+        ).exclude(pk=request.user.pk)
         for admin_user in admins:
             Notification.send(
                 recipient=admin_user,
@@ -376,7 +391,7 @@ def employee_create_view(request):
 
 @login_required
 def employee_detail_view(request, pk):
-    employee = get_object_or_404(CustomUser, pk=pk)
+    employee = get_object_or_404(scoped_user_qs(request.user), pk=pk)
     user = request.user
 
     # Access control:
@@ -521,8 +536,12 @@ def employee_detail_view(request, pk):
 @login_required
 @admin_required
 def employee_edit_view(request, pk):
-    employee = get_object_or_404(CustomUser, pk=pk)
+    employee = get_object_or_404(scoped_user_qs(request.user), pk=pk)
     form = EmployeeUpdateForm(request.POST or None, instance=employee)
+    # Tenant-scope the manager dropdown to this admin's own people.
+    form.fields['manager'].queryset = scoped_user_qs(request.user).filter(
+        role__in=['admin', 'manager'], is_active=True,
+    ).exclude(pk=employee.pk)
 
     if request.method == 'POST' and form.is_valid():
         form.save()
@@ -544,7 +563,7 @@ def employee_edit_view(request, pk):
 @login_required
 @admin_required
 def employee_deactivate_view(request, pk):
-    employee = get_object_or_404(CustomUser, pk=pk)
+    employee = get_object_or_404(scoped_user_qs(request.user), pk=pk)
 
     # Prevent self-deactivation
     if employee.pk == request.user.pk:
@@ -591,7 +610,7 @@ def employee_delete_view(request, pk):
       - Superuser accounts are protected from deletion.
       - Only acts on POST (the UI shows a confirmation modal first).
     """
-    employee = get_object_or_404(CustomUser, pk=pk)
+    employee = get_object_or_404(scoped_user_qs(request.user), pk=pk)
 
     if employee.pk == request.user.pk:
         messages.error(request, 'You cannot delete your own account.')
@@ -634,7 +653,7 @@ def employee_reset_data_view(request, pk):
       - Superuser accounts are protected.
       - Only acts on POST (the UI shows a confirmation modal first).
     """
-    employee = get_object_or_404(CustomUser, pk=pk)
+    employee = get_object_or_404(scoped_user_qs(request.user), pk=pk)
 
     if employee.pk == request.user.pk:
         messages.error(request, 'You cannot reset your own account data.')
@@ -681,7 +700,7 @@ def employee_reset_device_view(request, pk):
     Use this when an employee genuinely gets a new laptop. The next device
     they sign in from becomes their new permanent registered device.
     """
-    employee = get_object_or_404(CustomUser, pk=pk)
+    employee = get_object_or_404(scoped_user_qs(request.user), pk=pk)
 
     if request.method == 'POST':
         display_name = employee.get_full_name() or employee.username

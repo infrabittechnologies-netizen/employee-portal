@@ -12,7 +12,9 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from accounts.decorators import admin_required
+from accounts.tenancy import scoped_user_qs, in_same_tenant
 from attendance.models import Attendance
+from attendance.schedule import resolve_schedule
 from .forms import BonusForm, DeductionForm, GeneratePayslipForm
 from .models import Payslip, SalaryBonus, SalaryDeduction, SalesCommission
 
@@ -69,7 +71,9 @@ def payslip_detail_view(request, pk):
     """Show a single payslip. Employees can only view their own."""
     payslip = get_object_or_404(Payslip, pk=pk)
 
-    if not request.user.is_admin and payslip.employee != request.user:
+    if payslip.employee != request.user and not (
+        request.user.is_admin and in_same_tenant(request.user, payslip.employee)
+    ):
         messages.error(request, 'You are not authorised to view this payslip.')
         return redirect('salary:my_salary')
 
@@ -250,7 +254,11 @@ def pay_commission_view(request, pk):
     date & time, shows instantly on the employee's dashboard, and is added
     into that month's payslip net salary.
     """
-    employee = get_object_or_404(User, pk=pk)
+    employee = get_object_or_404(scoped_user_qs(request.user), pk=pk)
+
+    if not resolve_schedule(request.user).commission_enabled:
+        messages.error(request, 'Sales commission is disabled for this organization.')
+        return redirect('accounts:employee_list')
 
     if employee.is_superuser:
         messages.error(request, 'Cannot pay commission to a superuser account.')
@@ -349,8 +357,12 @@ def _recalc_payslip_for(employee, month, year):
 @require_POST
 def edit_commission_view(request, pk):
     """Admin updates a sales commission's amount and/or note."""
-    commission = get_object_or_404(SalesCommission, pk=pk)
+    commission = get_object_or_404(SalesCommission, pk=pk, employee__in=scoped_user_qs(request.user))
     employee = commission.employee
+
+    if not resolve_schedule(request.user).commission_enabled:
+        messages.error(request, 'Sales commission is disabled for this organization.')
+        return redirect('accounts:employee_detail', pk=employee.pk)
 
     raw_amount = (request.POST.get('amount') or '').strip()
     note = (request.POST.get('note') or '').strip()
@@ -378,7 +390,7 @@ def edit_commission_view(request, pk):
 @require_POST
 def delete_commission_view(request, pk):
     """Admin removes a sales commission."""
-    commission = get_object_or_404(SalesCommission, pk=pk)
+    commission = get_object_or_404(SalesCommission, pk=pk, employee__in=scoped_user_qs(request.user))
     employee = commission.employee
     month, year = commission.month, commission.year
     amount = commission.amount
@@ -427,7 +439,7 @@ def _period_from_post(request):
 @require_POST
 def update_base_salary_view(request, pk):
     """Admin adjusts an employee's base (basic) salary."""
-    employee = get_object_or_404(User, pk=pk)
+    employee = get_object_or_404(scoped_user_qs(request.user), pk=pk)
     amount = _parse_amount(request.POST.get('basic_salary'))
     if amount < 0:
         messages.error(request, 'Base salary cannot be negative.')
@@ -453,7 +465,7 @@ def update_base_salary_view(request, pk):
 @require_POST
 def emp_add_deduction_view(request, pk):
     """Add a manual deduction for an employee for the viewed period."""
-    employee = get_object_or_404(User, pk=pk)
+    employee = get_object_or_404(scoped_user_qs(request.user), pk=pk)
     month, year = _period_from_post(request)
     amount = _parse_amount(request.POST.get('amount'))
     reason = request.POST.get('reason') or 'other'
@@ -483,7 +495,7 @@ def emp_add_deduction_view(request, pk):
 @require_POST
 def emp_edit_deduction_view(request, pk):
     """Edit a manual deduction."""
-    deduction = get_object_or_404(SalaryDeduction, pk=pk)
+    deduction = get_object_or_404(SalaryDeduction, pk=pk, employee__in=scoped_user_qs(request.user))
     employee = deduction.employee
 
     if deduction.source != 'manual':
@@ -508,7 +520,7 @@ def emp_edit_deduction_view(request, pk):
 @require_POST
 def emp_delete_deduction_view(request, pk):
     """Remove a manual deduction."""
-    deduction = get_object_or_404(SalaryDeduction, pk=pk)
+    deduction = get_object_or_404(SalaryDeduction, pk=pk, employee__in=scoped_user_qs(request.user))
     employee = deduction.employee
     month, year = deduction.month, deduction.year
 
@@ -527,7 +539,7 @@ def emp_delete_deduction_view(request, pk):
 @require_POST
 def emp_add_bonus_view(request, pk):
     """Add a bonus/allowance for an employee for the viewed period."""
-    employee = get_object_or_404(User, pk=pk)
+    employee = get_object_or_404(scoped_user_qs(request.user), pk=pk)
     month, year = _period_from_post(request)
     amount = _parse_amount(request.POST.get('amount'))
     title = (request.POST.get('title') or '').strip() or 'Bonus'
@@ -554,7 +566,7 @@ def emp_add_bonus_view(request, pk):
 @require_POST
 def emp_edit_bonus_view(request, pk):
     """Edit a bonus."""
-    bonus = get_object_or_404(SalaryBonus, pk=pk)
+    bonus = get_object_or_404(SalaryBonus, pk=pk, employee__in=scoped_user_qs(request.user))
     employee = bonus.employee
     amount = _parse_amount(request.POST.get('amount'))
     if amount <= 0:
@@ -573,7 +585,7 @@ def emp_edit_bonus_view(request, pk):
 @require_POST
 def emp_delete_bonus_view(request, pk):
     """Remove a bonus."""
-    bonus = get_object_or_404(SalaryBonus, pk=pk)
+    bonus = get_object_or_404(SalaryBonus, pk=pk, employee__in=scoped_user_qs(request.user))
     employee = bonus.employee
     month, year = bonus.month, bonus.year
     amount = bonus.amount
@@ -606,8 +618,11 @@ def salary_report_view(request):
     month = int(request.GET.get('month', now.month))
     year = int(request.GET.get('year', now.year))
 
-    payslips = Payslip.objects.filter(month=month, year=year).select_related('employee')
-    employees_with_no_payslip = User.objects.exclude(
+    tenant_users = scoped_user_qs(request.user)
+    payslips = Payslip.objects.filter(
+        month=month, year=year, employee__in=tenant_users
+    ).select_related('employee')
+    employees_with_no_payslip = tenant_users.exclude(
         payslips__month=month,
         payslips__year=year,
     )
@@ -615,7 +630,7 @@ def salary_report_view(request):
     # Employees expected to mark attendance (used for the live-deduction table
     # and the Add Deduction / Add Bonus dropdowns).
     employees = (
-        User.objects.filter(is_active=True)
+        tenant_users.filter(is_active=True)
         .exclude(role='admin')
         .exclude(is_superuser=True)
         .order_by('first_name', 'username')
@@ -636,7 +651,9 @@ def salary_report_view(request):
     # Sales commissions for the selected period — grouped per employee, shown
     # WITHOUT requiring a payslip (mirrors the live-deductions card).
     commission_qs = (
-        SalesCommission.objects.filter(month=month, year=year)
+        SalesCommission.objects.filter(
+            month=month, year=year, employee__in=tenant_users
+        )
         .select_related('employee')
         .order_by('employee__first_name', '-paid_at')
     )
@@ -680,7 +697,9 @@ def download_payslip_view(request, pk):
     """Generate and download a payslip as a PDF using ReportLab."""
     payslip = get_object_or_404(Payslip, pk=pk)
 
-    if not request.user.is_admin and payslip.employee != request.user:
+    if payslip.employee != request.user and not (
+        request.user.is_admin and in_same_tenant(request.user, payslip.employee)
+    ):
         messages.error(request, 'You are not authorised to download this payslip.')
         return redirect('salary:my_salary')
 

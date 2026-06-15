@@ -8,6 +8,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
+from accounts.tenancy import scoped_user_qs, in_same_tenant
 from notifications_app.models import Notification
 from .forms import LeaveApplicationForm, LeaveReviewForm, LeaveTypeForm
 from .models import LeaveApplication, LeaveBalance, LeaveType
@@ -165,8 +166,12 @@ def leave_detail_view(request, pk):
         pk=pk,
     )
 
-    # Permission: employees can only see their own applications.
-    if application.employee != request.user and not _is_manager_or_admin(request.user):
+    # Permission: employees can only see their own applications; managers/admins
+    # only within their own tenant.
+    if application.employee != request.user and not (
+        _is_manager_or_admin(request.user)
+        and in_same_tenant(request.user, application.employee)
+    ):
         messages.error(request, 'You do not have permission to view this application.')
         return redirect('leaves:my_leaves')
 
@@ -220,7 +225,7 @@ def pending_leaves_view(request):
         return redirect('dashboard:dashboard')
 
     queryset = LeaveApplication.objects.filter(
-        status='pending'
+        status='pending', employee__in=scoped_user_qs(request.user),
     ).select_related('employee', 'leave_type').order_by('applied_on')
 
     # Managers only see their subordinates' requests
@@ -239,7 +244,7 @@ def pending_leaves_view(request):
     context = {
         'applications': queryset,
         'leave_types': LeaveType.objects.all().order_by('name'),
-        'employees': User.objects.filter(is_active=True).order_by('first_name', 'last_name'),
+        'employees': scoped_user_qs(request.user).filter(is_active=True).order_by('first_name', 'last_name'),
         'selected_leave_type': leave_type_id,
         'selected_employee': employee_id,
         'total_pending': queryset.count(),
@@ -264,7 +269,9 @@ def review_leave_view(request, pk):
         return redirect('dashboard:dashboard')
 
     application = get_object_or_404(
-        LeaveApplication.objects.select_related('employee', 'leave_type'),
+        LeaveApplication.objects.filter(
+            employee__in=scoped_user_qs(request.user)
+        ).select_related('employee', 'leave_type'),
         pk=pk,
     )
 
@@ -352,13 +359,13 @@ def leave_calendar_view(request):
 
     year = max(2000, min(year, today.year + 1))
 
-    # Determine which employees to show
+    # Determine which employees to show (always within the current tenant)
     if _is_manager_or_admin(request.user):
-        employees = User.objects.filter(is_active=True).order_by('first_name', 'last_name')
+        employees = scoped_user_qs(request.user).filter(is_active=True).order_by('first_name', 'last_name')
     else:
         # Regular employee: show themselves + teammates who share the same manager
         if request.user.manager:
-            employees = User.objects.filter(
+            employees = scoped_user_qs(request.user).filter(
                 is_active=True,
                 manager=request.user.manager,
             ).order_by('first_name', 'last_name')

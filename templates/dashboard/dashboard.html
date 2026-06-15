@@ -112,7 +112,7 @@
               <span>On Break</span>
             </button>
             <div class="att-break-badge">
-              <i class="fas fa-pause-circle me-1"></i>Break {{ break_info.break_number }} of {{ break_info.total_breaks }} — Not Counted
+              <i class="fas fa-pause-circle me-1"></i>{{ break_info.label|default:"Break" }} ({{ break_info.break_number }} of {{ break_info.total_breaks }}){% if not break_info.deductible %} — Not Counted{% endif %}
             </div>
 
             <!-- Countdown -->
@@ -153,7 +153,7 @@
             <!-- ── RESTART WORK STATE ── -->
             <div class="att-break-badge" style="background:rgba(99,102,241,.12);color:#818cf8;border-color:rgba(99,102,241,.28);">
               <i class="fas fa-exclamation-circle me-1"></i>
-              Break {{ post_break_info.break_number }} ended
+              {{ post_break_info.label|default:"Break" }} ended
               <span id="minutesSinceBreak">{{ post_break_info.minutes_since_end }}</span> min ago
             </div>
             <button id="restartWorkBtn"
@@ -214,10 +214,12 @@
             <span class="text-muted text-sm"><i class="fas fa-wallet me-2 text-secondary"></i>Base after deductions</span>
             <span class="fw-semibold text-sm">PKR {{ remaining_base|floatformat:0 }}</span>
           </div>
+          {% if commission_enabled %}
           <div class="d-flex justify-content-between align-items-center mb-2">
             <span class="text-muted text-sm"><i class="fas fa-hand-holding-dollar me-2 text-success"></i>Sales commission</span>
             <span class="fw-semibold text-sm text-success">+ PKR {{ commission_total|floatformat:0 }}</span>
           </div>
+          {% endif %}
           <div class="d-flex justify-content-between align-items-center mb-2">
             <span class="text-muted text-sm"><i class="fas fa-gift me-2 text-success"></i>Bonuses</span>
             <span class="fw-semibold text-sm text-success">+ PKR {{ bonuses_total|floatformat:0 }}</span>
@@ -385,6 +387,7 @@
     </div>
   </div>
 
+  {% if commission_enabled %}
   <!-- Sales Commission -->
   <div class="col-12 col-lg-4">
     <div class="card h-100 fade-in-up delay-3">
@@ -425,6 +428,7 @@
       </div>
     </div>
   </div>
+  {% endif %}
 
 </div>
 

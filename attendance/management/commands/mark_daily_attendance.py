@@ -33,7 +33,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from attendance.models import Attendance
-from attendance.schedule import is_weekend
+from attendance.schedule import is_weekend, resolve_schedule
 from holidays.models import Holiday
 from leaves.models import LeaveApplication
 
@@ -73,14 +73,9 @@ class Command(BaseCommand):
         target_date = self._resolve_date(options)
         dry_run = options['dry_run']
 
-        # 1. Skip weekends entirely.
-        if is_weekend(target_date):
-            self.stdout.write(
-                self.style.WARNING(
-                    f'{target_date} is a weekend — nothing to finalise.'
-                )
-            )
-            return
+        # 1. Weekends are handled PER EMPLOYEE below (each tenant may have a
+        #    different working week, e.g. Mon–Sat), so we do NOT skip the whole
+        #    day here.
 
         # 2. Skip company holidays.
         if Holiday.objects.filter(date=target_date).exists():
@@ -121,7 +116,13 @@ class Command(BaseCommand):
         skipped_protected = 0
 
         with transaction.atomic():
+            skipped_weekend = 0
             for emp in employees:
+                # Skip employees whose tenant treats this day as a weekend.
+                if is_weekend(target_date, resolve_schedule(emp)):
+                    skipped_weekend += 1
+                    continue
+
                 record = existing.get(emp.id)
 
                 # Already checked in -> they worked, leave untouched.

@@ -63,7 +63,7 @@
               <span>On Break</span>
             </button>
             <div class="att-break-badge">
-              <i class="fas fa-pause-circle me-1"></i>Break {{ break_info.break_number }} of {{ break_info.total_breaks }} — Not Counted
+              <i class="fas fa-pause-circle me-1"></i>{{ break_info.label|default:"Break" }} ({{ break_info.break_number }} of {{ break_info.total_breaks }}){% if not break_info.deductible %} — Not Counted{% endif %}
             </div>
 
             <!-- Countdown -->
@@ -105,9 +105,9 @@
             <div class="att-break-badge" style="background:rgba(99,102,241,.12);color:#818cf8;border-color:rgba(99,102,241,.28);">
               <i class="fas fa-exclamation-circle me-1"></i>
               {% if post_break_info.early %}
-                Break {{ post_break_info.break_number }} ending soon — resume early
+                {{ post_break_info.label|default:"Break" }} ending soon — resume early
               {% else %}
-                Break {{ post_break_info.break_number }} ended
+                {{ post_break_info.label|default:"Break" }} ended
                 <span id="minutesSinceBreak">{{ post_break_info.minutes_since_end }}</span> min ago
               {% endif %}
             </div>
