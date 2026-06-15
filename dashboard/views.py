@@ -8,7 +8,10 @@ from performance.models import PerformanceReview
 from holidays.models import Holiday, Announcement
 from notifications_app.models import Notification
 from accounts.models import CustomUser, Department
-from attendance.schedule import get_break_status, get_post_break_status, resolve_schedule
+from attendance.schedule import (
+    get_break_status, get_post_break_status, resolve_schedule,
+    display_shift_line, display_breaks_line,
+)
 from salary.deductions import month_deduction_summary
 from decimal import Decimal
 import datetime
@@ -169,6 +172,9 @@ def dashboard_view(request):
         'show_birthday': show_birthday,
         'show_anniversary': show_anniversary,
         'estimated_salary': estimated_salary,
+        # Tenant-aware shift card text (Portal A renders the original strings).
+        'shift_line': display_shift_line(_sched, today),
+        'breaks_line': display_breaks_line(_sched),
     }
     return render(request, 'dashboard/dashboard.html', context)
 

@@ -119,9 +119,9 @@
             </button>
             <div class="att-checked-in-note">
               {% if post_break_info.early %}
-                Break {{ post_break_info.break_number }} of 2 — you can resume up to {{ post_break_info.break_end|time:"h:i A" }}
+                Break {{ post_break_info.break_number }} of {{ post_break_info.total_breaks }} — you can resume up to {{ post_break_info.break_end|time:"h:i A" }}
               {% else %}
-                Break {{ post_break_info.break_number }} of 2 — click to resume timer
+                Break {{ post_break_info.break_number }} of {{ post_break_info.total_breaks }} — click to resume timer
               {% endif %}
             </div>
 
@@ -145,12 +145,13 @@
           <div class="att-hint">Tap to record your arrival</div>
           <div class="att-shift-info">
             <div class="att-shift-row">
-              <i class="fas fa-clock"></i>
-              {% now "w" as dow %}{% if dow == "5" %}3:00 PM – 11:00 PM{% else %}2:00 PM – 11:00 PM{% endif %}
+              <i class="fas fa-clock"></i>{{ shift_line }}
             </div>
+            {% if breaks_line %}
             <div class="att-shift-row">
-              <i class="fas fa-coffee"></i>Breaks: 6–7:15 PM &amp; 9:40–10 PM
+              <i class="fas fa-coffee"></i>{{ breaks_line }}
             </div>
+            {% endif %}
           </div>
         {% endif %}
 
@@ -611,7 +612,7 @@ function populateCheckoutModal(d) {
 
   addEvent('sign-in-alt', '#10b981', '#f0fdf4',
     'Checked In at ' + d.check_in,
-    isLate ? d.late_minutes + ' min late (shift starts ' + (d.is_friday ? '3:00 PM' : '2:00 PM') + ')' : 'On time'
+    isLate ? d.late_minutes + ' min late (shift starts ' + (d.shift_start || '2:00 PM') + ')' : 'On time'
   );
 
   d.breaks.forEach(b => {

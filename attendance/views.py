@@ -18,6 +18,7 @@ from .schedule import (
     get_break_status, get_post_break_status, is_too_early_checkin,
     earliest_checkin_time, resolve_schedule,
     is_within_working_hours, working_hours_label,
+    display_shift_line, display_breaks_line,
 )
 
 User = get_user_model()
@@ -360,6 +361,7 @@ def day_summary_api(request):
         'check_in':            ci_local.strftime('%I:%M %p'),
         'is_late':             attendance.is_late,
         'late_minutes':        late_mins,
+        'shift_start':         shift_start.strftime('%I:%M %p').lstrip('0'),
         'status':              attendance.get_status_display(),
         'breaks':              breaks_data,
         'tentative_checkout':  now_local.strftime('%I:%M %p'),
@@ -506,6 +508,9 @@ def my_attendance_view(request):
         'next_year': next_year,
         'next_month': next_month,
         'today': today,
+        # Tenant-aware shift card text (Portal A renders the original strings).
+        'shift_line': display_shift_line(sched, today),
+        'breaks_line': display_breaks_line(sched),
     }
     return render(request, 'attendance/my_attendance.html', context)
 

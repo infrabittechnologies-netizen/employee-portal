@@ -310,6 +310,64 @@ def working_hours_label(sched=None) -> str:
     return f'{et} – {lt}, {days}'
 
 
+def _fmt_full(t: datetime.time) -> str:
+    """e.g. 14:00 -> "2:00 PM", 23:00 -> "11:00 PM" (leading zero stripped)."""
+    return t.strftime('%I:%M %p').lstrip('0')
+
+
+def _fmt_compact(t: datetime.time, with_meridiem: bool = False) -> str:
+    """Compact time: drop ":00" minutes and leading zero. e.g. 18:00 -> "6",
+    19:15 -> "7:15". ``with_meridiem`` appends " PM"/" AM"."""
+    h = t.strftime('%I').lstrip('0') or '12'
+    s = h if t.minute == 0 else f'{h}:{t.minute:02d}'
+    if with_meridiem:
+        s += ' ' + t.strftime('%p')
+    return s
+
+
+def display_shift_line(sched=None, for_date=None) -> str:
+    """The "Check-in" card's shift-time line, e.g. "2:00 PM – 11:00 PM".
+
+    Uses ``for_date``'s shift start when that day is a working day; on off-days
+    it falls back to the earliest working-day start so the card still shows a
+    representative window (this reproduces the original hardcoded behaviour for
+    :data:`DEFAULT_SCHEDULE` exactly — Mon–Thu/weekends "2:00 PM – 11:00 PM",
+    Friday "3:00 PM – 11:00 PM")."""
+    sched = _s(sched)
+    if for_date is None:
+        from django.utils import timezone as dj_tz
+        for_date = dj_tz.localdate()
+    wd = for_date if isinstance(for_date, int) else for_date.weekday()
+    start = sched.shift_start.get(wd)
+    if start is None:
+        starts = [sched.shift_start[w] for w in sorted(sched.shift_start)]
+        start = starts[0] if starts else None
+    if start is None or sched.shift_end is None:
+        return ''
+    return f'{_fmt_full(start)} – {_fmt_full(sched.shift_end)}'
+
+
+def display_breaks_line(sched=None) -> str:
+    """The "Check-in" card's breaks line, e.g. "Breaks: 6–7:15 PM & 9:40–10 PM".
+
+    Reproduces the original hardcoded string for :data:`DEFAULT_SCHEDULE` and
+    renders the correct windows for any tenant schedule. Returns '' when the
+    schedule has no breaks."""
+    sched = _s(sched)
+    segs = []
+    for bw in sched.breaks:
+        diff_meridiem = bw.start.strftime('%p') != bw.end.strftime('%p')
+        seg = (
+            _fmt_compact(bw.start, with_meridiem=diff_meridiem)
+            + '–'
+            + _fmt_compact(bw.end, with_meridiem=True)
+        )
+        segs.append(seg)
+    if not segs:
+        return ''
+    return 'Breaks: ' + ' & '.join(segs)
+
+
 def get_break_status(now_aware=None, restarted_break_numbers=None, sched=None):
     """
     Return a dict describing the current break if PKT time falls within a break
@@ -403,6 +461,7 @@ def get_post_break_status(now_aware=None, restarted_break_numbers=None, sched=No
 
         return {
             'break_number':      break_num,
+            'total_breaks':      len(breaks),
             'label':             bw.label,
             'deductible':        bw.deductible,
             'break_end':         b_end,
