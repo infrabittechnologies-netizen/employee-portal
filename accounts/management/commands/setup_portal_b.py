@@ -47,63 +47,76 @@ PORTAL_B_CONFIG = {
 
 
 class Command(BaseCommand):
-    help = 'Create or update the Portal B TenantSchedule row for one admin.'
+    help = 'Create or update the Portal B TenantSchedule row(s) for the named users.'
 
     def add_arguments(self, parser):
         parser.add_argument(
-            'username',
-            help='Tenant ROOT admin username for Portal B.',
+            'usernames', nargs='+',
+            help=(
+                'One or more usernames to put on the Portal B schedule. Each '
+                'is resolved to its schedule-root the same way the app does '
+                '(tenant_root(user) or the user itself when it has no owner).'
+            ),
         )
         parser.add_argument(
             '--dry-run', action='store_true',
             help='Show what would change without writing to the database.',
         )
 
+    def _resolve_root(self, user):
+        """Mirror attendance.schedule.resolve_schedule: the schedule key is
+        ``tenant_root(user) or user`` — so a user with no owner is its own
+        schedule-root (this is how the infrabit deployment is structured)."""
+        return tenant_root(user) or user
+
     def handle(self, *args, **options):
-        username = options['username']
+        usernames = options['usernames']
         dry_run = options['dry_run']
 
-        try:
-            user = CustomUser.objects.get(username=username)
-        except CustomUser.DoesNotExist:
-            raise CommandError(f'No user with username {username!r} exists.')
-
-        if user.is_superuser:
-            raise CommandError(
-                f'{username!r} is a superuser (global). A TenantSchedule must '
-                'point at a tenant ROOT admin, not the global superuser.'
-            )
-
-        root = tenant_root(user)
-        if root is None:
-            raise CommandError(
-                f'Could not resolve a tenant root for {username!r}. '
-                'Pass the tenant admin account (role=admin).'
-            )
-        if root.pk != user.pk:
-            self.stdout.write(self.style.WARNING(
-                f'{username!r} is not a tenant root; using its owner '
-                f'{root.username!r} as the Portal B tenant root.'
-            ))
-
-        existing = TenantSchedule.objects.filter(admin=root).first()
-        verb = 'Would update' if dry_run else 'Updated'
-        if existing is None:
-            verb = 'Would create' if dry_run else 'Created'
+        # Resolve + validate ALL targets up front so a bad name aborts before
+        # any write. We never touch a user that isn't explicitly named here.
+        targets = []  # (input_username, schedule_root_user)
+        for username in usernames:
+            try:
+                user = CustomUser.objects.get(username=username)
+            except CustomUser.DoesNotExist:
+                raise CommandError(f'No user with username {username!r} exists.')
+            if user.is_superuser:
+                raise CommandError(
+                    f'{username!r} is a superuser (global). Superusers always '
+                    'use the DEFAULT schedule and must not be put on Portal B.'
+                )
+            root = self._resolve_root(user)
+            if root is None:
+                raise CommandError(
+                    f'Could not resolve a schedule-root for {username!r}.'
+                )
+            targets.append((username, root))
 
         if dry_run:
             self.stdout.write(self.style.NOTICE(
-                f'{verb} Portal B schedule for {root.username!r}:'
+                'DRY RUN — no changes will be written.'
             ))
+            for username, root in targets:
+                exists = TenantSchedule.objects.filter(admin=root).exists()
+                verb = 'Would update' if exists else 'Would create'
+                note = '' if root.username == username else f' (root: {root.username!r})'
+                self.stdout.write(f'  {verb} Portal B schedule for {username!r}{note}')
+            self.stdout.write('\nConfig that will be applied:')
             for k, v in PORTAL_B_CONFIG.items():
                 self.stdout.write(f'  {k} = {v!r}')
             return
 
-        obj, created = TenantSchedule.objects.update_or_create(
-            admin=root, defaults=PORTAL_B_CONFIG,
-        )
-        verb = 'Created' if created else 'Updated'
+        for username, root in targets:
+            _obj, created = TenantSchedule.objects.update_or_create(
+                admin=root, defaults=PORTAL_B_CONFIG,
+            )
+            verb = 'Created' if created else 'Updated'
+            note = '' if root.username == username else f' (root: {root.username!r})'
+            self.stdout.write(self.style.SUCCESS(
+                f'{verb} Portal B schedule for {username!r}{note}'
+            ))
         self.stdout.write(self.style.SUCCESS(
-            f'{verb} Portal B schedule for {root.username!r} '
-            f'(commission off, Mon–Sat 09:00–18:00, working-hours enforced).'
+            f'Done. {len(targets)} user(s) on Portal B '
+            '(commission off, Mon–Sat 09:00–18:00, working-hours enforced).'
         ))
