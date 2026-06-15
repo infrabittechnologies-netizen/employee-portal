@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Leave Types{% endblock %}
+{% block page_title %}Leave Types{% endblock %}
+
+{% block breadcrumb %}
+  <li class="breadcrumb-item active">Leave Types</li>
+{% endblock %}
+
+{% block content %}
+
+<div class="row g-4">
+  <!-- Create / Edit form -->
+  <div class="col-12 col-lg-4">
+    <div class="card fade-in-up">
+      <div class="card-header">
+        <i class="fas {% if editing %}fa-pen{% else %}fa-plus{% endif %} text-primary me-2"></i>
+        {% if editing %}Edit Leave Type{% else %}Add Leave Type{% endif %}
+      </div>
+      <div class="card-body p-4">
+        <form method="post">
+          {% csrf_token %}
+          {% if editing %}<input type="hidden" name="pk" value="{{ editing.pk }}">{% endif %}
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="{{ form.name.id_for_label }}">
+              Name <span class="text-danger">*</span>
+            </label>
+            {{ form.name }}
+            {% for err in form.name.errors %}<div class="text-danger small mt-1">{{ err }}</div>{% endfor %}
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="{{ form.max_days_per_year.id_for_label }}">
+              Max days per year
+            </label>
+            {{ form.max_days_per_year }}
+            {% for err in form.max_days_per_year.errors %}<div class="text-danger small mt-1">{{ err }}</div>{% endfor %}
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-7">
+              <label class="form-label fw-semibold" for="{{ form.color.id_for_label }}">Calendar colour</label>
+              {{ form.color }}
+              {% for err in form.color.errors %}<div class="text-danger small mt-1">{{ err }}</div>{% endfor %}
+            </div>
+            <div class="col-5 d-flex align-items-end">
+              <div class="form-check">
+                {{ form.is_paid }}
+                <label class="form-check-label" for="{{ form.is_paid.id_for_label }}">Paid leave</label>
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="{{ form.description.id_for_label }}">Description</label>
+            {{ form.description }}
+            {% for err in form.description.errors %}<div class="text-danger small mt-1">{{ err }}</div>{% endfor %}
+          </div>
+
+          {% if form.non_field_errors %}
+            <div class="alert alert-danger py-2">{{ form.non_field_errors }}</div>
+          {% endif %}
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">
+              <i class="fas fa-save me-1"></i>{% if editing %}Update{% else %}Create{% endif %}
+            </button>
+            {% if editing %}
+              <a href="{% url 'leaves:leave_types' %}" class="btn btn-outline-secondary">Cancel</a>
+            {% endif %}
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Existing leave types -->
+  <div class="col-12 col-lg-8">
+    <div class="card fade-in-up">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <span><i class="fas fa-list text-primary me-2"></i>Existing Leave Types</span>
+        <span class="badge bg-secondary">{{ leave_types|length }}</span>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Max / year</th>
+                <th>Paid</th>
+                <th>Colour</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for lt in leave_types %}
+              <tr>
+                <td class="fw-semibold">{{ lt.name }}</td>
+                <td>{{ lt.max_days_per_year }}</td>
+                <td>
+                  {% if lt.is_paid %}
+                    <span class="badge bg-success">Paid</span>
+                  {% else %}
+                    <span class="badge bg-secondary">Unpaid</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <span class="d-inline-block rounded" style="width:18px;height:18px;background:{{ lt.color }};border:1px solid #ccc;"></span>
+                </td>
+                <td class="text-end">
+                  <a href="{% url 'leaves:leave_types' %}?pk={{ lt.pk }}" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-pen"></i>
+                  </a>
+                  <form method="post" action="{% url 'leaves:leave_types' %}" class="d-inline"
+                        onsubmit="return confirm('Delete leave type \'{{ lt.name|escapejs }}\'?');">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="pk" value="{{ lt.pk }}">
+                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </form>
+                </td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="5" class="text-center text-muted py-4">No leave types yet. Add one using the form.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

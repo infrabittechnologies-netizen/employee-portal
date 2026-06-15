@@ -266,8 +266,6 @@ def employee_list_view(request):
     department_filter = request.GET.get('department', '').strip()
     role_filter = request.GET.get('role', '').strip()
 
-    from .tenancy import scoped_user_qs
-
     if user.is_admin:
         # Tenant-scoped: an admin only ever sees the users they own.
         employees = scoped_user_qs(user)
@@ -326,7 +324,6 @@ def employee_create_view(request):
         if not employee.employee_id:
             employee.employee_id = _generate_employee_id()
         # Multi-tenant: the new user belongs to the creating admin's tenant.
-        from .tenancy import tenant_root
         employee.owner = tenant_root(request.user) or request.user
         employee.save()
 
@@ -344,7 +341,6 @@ def employee_create_view(request):
         )
 
         # Notify admins about the new hire — only within the same tenant.
-        from .tenancy import scoped_user_qs
         admins = scoped_user_qs(request.user).filter(
             role='admin', is_active=True,
         ).exclude(pk=request.user.pk)
