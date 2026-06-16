@@ -635,6 +635,7 @@
     </form>
   </div>
 </div>
+{% endif %}{# end commission-only modals (Edit/Delete Commission) #}
 
 {% if request.user.is_admin %}
 <!-- Reset Device Modal -->
@@ -674,7 +675,6 @@
     </form>
   </div>
 </div>
-{% endif %}
 
 <!-- Base Salary Modal -->
 <div class="modal fade" id="baseSalaryModal" tabindex="-1" aria-hidden="true">
@@ -890,6 +890,7 @@
     </form>
   </div>
 </div>
+{% endif %}{# end admin non-commission modals (reset/salary/bonus/deduction) #}
 
 {% if not employee.is_superuser and commission_enabled %}
 <!-- Add Commission Modal -->
@@ -924,7 +925,6 @@
     </form>
   </div>
 </div>
-{% endif %}
 {% endif %}
 {% endblock %}
 
